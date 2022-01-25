@@ -10,6 +10,7 @@ $dir = $PSScriptRoot
 Write-Output $dir
 
 docker run --privileged --name backup-test `
+ -h "restic-backup" `
  -e "RESTIC_PASSWORD=Foobar" `
  -e "RESTIC_TAG=test" `
  -e "RESTIC_PASSWORD2=Foobar2" `
