@@ -48,14 +48,14 @@
       <S N="Name">ResticStateLastMaintenance</S>
       <S N="Description"></S>
       <Obj N="Value" RefId="5">
-        <DT>2022-01-25T19:29:45.0675096+00:00</DT>
+        <DT>2022-01-25T20:00:51.3854815+00:00</DT>
         <MS>
           <Obj N="DisplayHint" RefId="6">
             <TN RefId="4">
-              <T>Deserialized.Microsoft.PowerShell.Commands.DisplayHintType</T>
-              <T>Deserialized.System.Enum</T>
-              <T>Deserialized.System.ValueType</T>
-              <T>Deserialized.System.Object</T>
+              <T>Microsoft.PowerShell.Commands.DisplayHintType</T>
+              <T>System.Enum</T>
+              <T>System.ValueType</T>
+              <T>System.Object</T>
             </TN>
             <ToString>DateTime</ToString>
             <I32>2</I32>
@@ -86,7 +86,7 @@
     <Props>
       <S N="Name">ResticStateMaintenanceCounter</S>
       <S N="Description"></S>
-      <I32 N="Value">6</I32>
+      <I32 N="Value">0</I32>
       <Obj N="Visibility" RefId="11">
         <TNRef RefId="1" />
         <ToString>Public</ToString>
