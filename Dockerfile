@@ -11,7 +11,7 @@ ENV RESTIC_REPOSITORY=""
 ENV RESTIC_PASSWORD=""
 
 # local restic repo (Repo2) is copied to remote restic repo
-ENV RESTIC_REPOSITORY2="/copy"
+ENV RESTIC_REPOSITORY2="/mnt/copy"
 ENV RESTIC_PASSWORD2=""
 ENV COPY_LOCAL_REPO="$false"
 
@@ -29,7 +29,7 @@ ENV HC_PING=""
 # /data is the dir where you have to put the data to be backed up
 VOLUME /data
 
-# /copy contains an existing restic repo to copy from
+# /mnt/copy contains an existing restic repo to copy from
 VOLUME /mnt/copy
 
 WORKDIR "/"

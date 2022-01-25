@@ -81,13 +81,21 @@ function Test-Restore {
     } else {
         Write-Error "Unsuccessful backup and restore"
     }
+
+    # test file restore
+    & $ResticBin restore latest -H $(hostname) --include "/data" --target /tmp/restore
+    if ($(Get-FileHash "/tmp/restore/data/foo.txt").Hash -eq (Get-FileHash "/data/foo.txt").Hash) {
+        Write-Output "File restore: hashes match"
+    } else {
+        Write-Error "File restore: hashes do NOT match"
+    }
 }
 
 function Remove-Backup {
     . $SecretsScript
     . $ConfigScript
 
-    $repos = @("$env:RESTIC_REPOSITORY", "$env:RESTIC_REPOSITORY2")
+    $repos = @("$env:RESTIC_REPOSITORY")
     foreach ($repo in $repos) {
         $msg = "Do you want to remove all data in $repo [y/n]?"
         $response = Read-Host -Prompt $msg
@@ -99,6 +107,6 @@ function Remove-Backup {
 }
 
 Remove-Backup
-New-LocalRepo
+# New-LocalRepo
 Test-Backup
 Test-Restore

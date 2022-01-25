@@ -86,7 +86,7 @@
     <Props>
       <S N="Name">ResticStateMaintenanceCounter</S>
       <S N="Description"></S>
-      <I32 N="Value">1</I32>
+      <I32 N="Value">6</I32>
       <Obj N="Visibility" RefId="11">
         <TNRef RefId="1" />
         <ToString>Public</ToString>
