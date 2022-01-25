@@ -48,9 +48,9 @@ function New-LocalRepo {
     $env:RESTIC_PASSWORD2 = $null
 
     try {
-        # make a new repository (repo2)
+        # make a new repository (repo2, with data from setB)
         & $ResticBin init
-        & $ResticBin backup "./dataForBackup/setA"
+        & $ResticBin backup -H setB "/dataB"
     }
     finally {
         $env:RESTIC_REPOSITORY = $repo1.Repo
@@ -64,7 +64,23 @@ function Test-Restore {
     . $SecretsScript
     . $ConfigScript
 
-    & $ResticBin 
+    # restore a file that was copied
+    # mimics a restore from the `restic copy` command
+    $out = & $ResticBin dump -H setB latest "/dataB/example.txt"
+    if ($out -eq $(Get-Content "/dataB/example.txt")) {
+        Write-Output "Copy and restore successful"
+    } else {
+        Write-Error "Unsuccessful copy and restore"
+    }
+
+    # restore a file that was backed up
+    # mimics a restore from the `restic backup` command
+    $out = & $ResticBin dump -H $(hostname) latest "/data/foo.txt"
+    if ($out -eq $(Get-Content "/data/foo.txt")) {
+        Write-Output "Backup and restore successful"
+    } else {
+        Write-Error "Unsuccessful backup and restore"
+    }
 }
 
 function Remove-Backup {

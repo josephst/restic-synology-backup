@@ -27,9 +27,10 @@
 	// Uncomment to use the Docker CLI from inside the container. See https://aka.ms/vscode-remote/samples/docker-from-docker.
 	// "mounts": [ "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind" ],
 	"mounts": [
-		"source=${localWorkspaceFolder}\\test\\source,target=/data,type=bind",
-		"source=${localWorkspaceFolder}\\test\\remoteRepo,target=/mnt/restic,type=bind",
-		"source=${localWorkspaceFolder}\\test\\localRepo,target=/mnt/copy,type=bind"
+		"source=${localWorkspaceFolder}\\dataForBackup\\setA,target=/data,type=bind",
+		"source=${localWorkspaceFolder}\\dataForBackup\\setB,target=/dataB,type=bind",
+		"source=${localWorkspaceFolder}\\test\\copy,target=/mnt/copy,type=bind",
+		"source=${localWorkspaceFolder}\\test\\remoteRepo,target=/mnt/restic,type=bind"
 	]
 	// Uncomment to connect as a non-root user if you've added one. See https://aka.ms/vscode-remote/containers/non-root.
 	// "remoteUser": "vscode"

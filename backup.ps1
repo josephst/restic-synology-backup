@@ -419,5 +419,5 @@ function Invoke-Main {
     # cleanup older log files
     Get-ChildItem $LogPath | Where-Object { $_.CreationTime -lt $(Get-Date).AddDays(-$LogRetentionDays) } | Remove-Item
 
-    exit $error_count
+    return $error_count
 }
