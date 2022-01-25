@@ -13,7 +13,7 @@ ENV RESTIC_PASSWORD=""
 # local restic repo (Repo2) is copied to remote restic repo
 ENV RESTIC_REPOSITORY2="/mnt/copy"
 ENV RESTIC_PASSWORD2=""
-ENV COPY_LOCAL_REPO="$false"
+ENV COPY_LOCAL_REPO="Y"
 
 ENV RESTIC_TAG=""
 ENV NFS_TARGET=""
@@ -23,7 +23,7 @@ ENV RESTIC_FORGET_ARGS=""
 ENV RESTIC_JOB_ARGS=""
 
 # Healthcheck
-ENV USE_HEALTHCHECK="$true"
+ENV USE_HEALTHCHECK="Y"
 ENV HC_PING=""
 
 # /data is the dir where you have to put the data to be backed up
