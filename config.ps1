@@ -19,7 +19,10 @@ $SnapshotMaintenanceDays = 30
 $SnapshotDeepMaintenanceDays = 90;
 
 # Healthchecks.io configuration
-$UseHealthcheck = $true
+$UseHealthcheck = [string]::IsNullOrEmpty($Env:USE_HEALTHCHECK) ? $false : $true
+
+# Copy an existing repo to the destination repo
+$CopyLocalRepo = [string]::IsNullOrEmpty($Env:COPY_LOCAL_REPO) ? $false : $true
 
 # Paths to backup
 $BackupSources = @{}

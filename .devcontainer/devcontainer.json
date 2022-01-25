@@ -17,7 +17,7 @@
 	// "forwardPorts": [],
 	// Uncomment the next line to run commands after the container is created - for example installing curl.
 	// "postCreateCommand": "apt-get update && apt-get install -y curl",
-	"postCreateCommand": "apk add -u git && pwsh -c Install-Module Pester -Force",
+	"postCreateCommand": "apk add -u git",
 	"runArgs": [
 		"--env-file",
 		".devcontainer/devcontainer.env"
@@ -28,7 +28,8 @@
 	// "mounts": [ "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind" ],
 	"mounts": [
 		"source=${localWorkspaceFolder}\\test\\source,target=/data,type=bind",
-		"source=${localWorkspaceFolder}\\test\\dest,target=/mnt/restic,type=bind"
+		"source=${localWorkspaceFolder}\\test\\remoteRepo,target=/mnt/restic,type=bind",
+		"source=${localWorkspaceFolder}\\test\\localRepo,target=/mnt/copy,type=bind"
 	]
 	// Uncomment to connect as a non-root user if you've added one. See https://aka.ms/vscode-remote/containers/non-root.
 	// "remoteUser": "vscode"

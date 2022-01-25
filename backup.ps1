@@ -38,7 +38,14 @@ function Invoke-Unlock {
 
 function New-Repo {
     Write-Output "[[Init]] Creating new restic repository with restic init"
-    & $ResticBin init
+    if ($null -eq $env:RESTIC_REPOSITORY2) {
+        & $ResticBin init
+    } else {
+        # if there's a second repo we'll be copying from,
+        # use its chunker params for data dedup
+        & $ResticBin init --copy-chunker-params
+    }
+    
     $out = $?
     
     if (-not $out) {
@@ -185,6 +192,39 @@ function Invoke-Backup {
     return $return_value
 }
 
+# copy an existing restic backup to a new location
+# new location should have same chunker params as existing location
+# to ensure deduplication. See https://restic.readthedocs.io/en/stable/045_working_with_repos.html#copying-snapshots-between-repositories
+function Invoke-Copy {
+    Param($SuccessLog, $ErrorLog)
+
+    Write-Output "[[Copy]] Start $(Get-Date)" | Tee-Object -Append $SuccessLog
+    $return_value = $true
+
+    # swap passwords around
+    $env:RESTIC_PASSWORD, $env:RESTIC_PASSWORD2 = $env:RESTIC_PASSWORD2, $env:RESTIC_PASSWORD
+
+    try {
+        # test to make sure local repo exists before copying from it
+        & $ResticBin snapshots -r $Env:RESTIC_REPOSITORY2
+        if (-not $?) {
+            Write-Output "[[Copy]] Could not find a local repository to copy from" | Tee-Object -Append $ErrorLog | Tee-Object -Append $SuccessLog
+            $return_value = $false
+        }
+        else {
+            # copy from local repo (repo2) to remote repo
+            & $ResticBin -r $Env:RESTIC_REPOSITORY2 copy --repo2 $env:RESTIC_REPOSITORY
+        }
+    }
+    finally {
+        # cleanup and swap passwords back
+        $env:RESTIC_PASSWORD, $env:RESTIC_PASSWORD2 = $env:RESTIC_PASSWORD2, $env:RESTIC_PASSWORD
+        Write-Output "[[Copy]] End $(Get-Date)" | Tee-Object -Append $SuccessLog
+    }
+
+    return $return_value
+}
+
 function Invoke-ConnectivityCheck {
     Param($SuccessLog, $ErrorLog)
     
@@ -303,13 +343,15 @@ function Send-Healthcheck {
     }
 }
 
-function Invoke-BackupProcess {
-    param (
-        $hc_url
-    )
+function Invoke-Main {
+
+    . $SecretsScript
+    . $ConfigScript
 
     # Start Backup Timer
-    Invoke-RestMethod "$hc_url/start" | Out-Null
+    if ($UseHealthcheck) {
+        Invoke-RestMethod "$hc_url/start" | Out-Null
+    }
 
     Get-BackupState
 
@@ -331,7 +373,11 @@ function Invoke-BackupProcess {
         if ($internet_available -eq $true) { 
             Invoke-Unlock $success_log $error_log
             $backup_success = Invoke-Backup $success_log $error_log
-            if ($backup_success) {
+            $copy_success = $true
+            if ($CopyLocalRepo) {
+                $copy_success = Invoke-Copy $success_log $error_log
+            }
+            if ($backup_success && $copy_success) {
                 Invoke-Maintenance $success_log $error_log
             }
 
@@ -340,7 +386,9 @@ function Invoke-BackupProcess {
                 $total_attempts = $GlobalRetryAttempts - $attempt_count + 1
                 Write-Output "Succeeded after $total_attempts attempt(s)" | Tee-Object -Append $success_log
                 Invoke-HistoryCheck $success_log $error_log
-                Send-Healthcheck $success_log $error_log
+                if ($UseHealthcheck) {
+                    Send-Healthcheck $success_log $error_log
+                }
                 break;
             }
         }
@@ -357,7 +405,9 @@ function Invoke-BackupProcess {
         }
         if ($internet_available -eq $true) {
             Invoke-HistoryCheck $success_log $error_log
-            Send-Healthcheck $success_log $error_log
+            if ($UseHealthcheck) {
+                Send-Healthcheck $success_log $error_log
+            }
         }
         if ($attempt_count -gt 0) {
             Start-Sleep (15 * 60)
