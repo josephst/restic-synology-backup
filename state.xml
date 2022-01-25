@@ -1,0 +1,133 @@
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04">
+  <Obj RefId="0">
+    <TN RefId="0">
+      <T>System.Management.Automation.PSVariable</T>
+      <T>System.Object</T>
+    </TN>
+    <ToString>System.Management.Automation.PSVariable</ToString>
+    <Props>
+      <S N="Name">ResticStateLastDeepMaintenance</S>
+      <S N="Description"></S>
+      <Nil N="Value" />
+      <Obj N="Visibility" RefId="1">
+        <TN RefId="1">
+          <T>System.Management.Automation.SessionStateEntryVisibility</T>
+          <T>System.Enum</T>
+          <T>System.ValueType</T>
+          <T>System.Object</T>
+        </TN>
+        <ToString>Public</ToString>
+        <I32>0</I32>
+      </Obj>
+      <Nil N="Module" />
+      <S N="ModuleName"></S>
+      <Obj N="Options" RefId="2">
+        <TN RefId="2">
+          <T>System.Management.Automation.ScopedItemOptions</T>
+          <T>System.Enum</T>
+          <T>System.ValueType</T>
+          <T>System.Object</T>
+        </TN>
+        <ToString>None</ToString>
+        <I32>0</I32>
+      </Obj>
+      <Obj N="Attributes" RefId="3">
+        <TN RefId="3">
+          <T>System.Management.Automation.PSVariableAttributeCollection</T>
+          <T>System.Collections.ObjectModel.Collection`1[[System.Attribute, System.Private.CoreLib, Version=6.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]</T>
+          <T>System.Object</T>
+        </TN>
+        <LST />
+      </Obj>
+    </Props>
+  </Obj>
+  <Obj RefId="4">
+    <TNRef RefId="0" />
+    <ToString>System.Management.Automation.PSVariable</ToString>
+    <Props>
+      <S N="Name">ResticStateLastMaintenance</S>
+      <S N="Description"></S>
+      <Obj N="Value" RefId="5">
+        <DT>2022-01-25T03:22:40.4516084+00:00</DT>
+        <MS>
+          <Obj N="DisplayHint" RefId="6">
+            <TN RefId="4">
+              <T>Deserialized.Microsoft.PowerShell.Commands.DisplayHintType</T>
+              <T>Deserialized.System.Enum</T>
+              <T>Deserialized.System.ValueType</T>
+              <T>Deserialized.System.Object</T>
+            </TN>
+            <ToString>DateTime</ToString>
+            <I32>2</I32>
+          </Obj>
+        </MS>
+      </Obj>
+      <Obj N="Visibility" RefId="7">
+        <TNRef RefId="1" />
+        <ToString>Public</ToString>
+        <I32>0</I32>
+      </Obj>
+      <Nil N="Module" />
+      <S N="ModuleName"></S>
+      <Obj N="Options" RefId="8">
+        <TNRef RefId="2" />
+        <ToString>None</ToString>
+        <I32>0</I32>
+      </Obj>
+      <Obj N="Attributes" RefId="9">
+        <TNRef RefId="3" />
+        <LST />
+      </Obj>
+    </Props>
+  </Obj>
+  <Obj RefId="10">
+    <TNRef RefId="0" />
+    <ToString>System.Management.Automation.PSVariable</ToString>
+    <Props>
+      <S N="Name">ResticStateMaintenanceCounter</S>
+      <S N="Description"></S>
+      <I32 N="Value">4</I32>
+      <Obj N="Visibility" RefId="11">
+        <TNRef RefId="1" />
+        <ToString>Public</ToString>
+        <I32>0</I32>
+      </Obj>
+      <Nil N="Module" />
+      <S N="ModuleName"></S>
+      <Obj N="Options" RefId="12">
+        <TNRef RefId="2" />
+        <ToString>None</ToString>
+        <I32>0</I32>
+      </Obj>
+      <Obj N="Attributes" RefId="13">
+        <TNRef RefId="3" />
+        <LST />
+      </Obj>
+    </Props>
+  </Obj>
+  <Obj RefId="14">
+    <TNRef RefId="0" />
+    <ToString>System.Management.Automation.PSVariable</ToString>
+    <Props>
+      <S N="Name">ResticStateRepositoryInitialized</S>
+      <S N="Description"></S>
+      <Nil N="Value" />
+      <Obj N="Visibility" RefId="15">
+        <TNRef RefId="1" />
+        <ToString>Public</ToString>
+        <I32>0</I32>
+      </Obj>
+      <Nil N="Module" />
+      <S N="ModuleName"></S>
+      <Obj N="Options" RefId="16">
+        <TNRef RefId="2" />
+        <ToString>None</ToString>
+        <I32>0</I32>
+      </Obj>
+      <Obj N="Attributes" RefId="17">
+        <TNRef RefId="3" />
+        <LST />
+      </Obj>
+    </Props>
+  </Obj>
+</Objs>

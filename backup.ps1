@@ -39,8 +39,9 @@ function Invoke-Unlock {
 function New-Repo {
     Write-Output "[[Init]] Creating new restic repository with restic init"
     & $ResticBin init
+    $out = $?
     
-    if (-not $?) {
+    if (-not $out) {
         Write-Output "[[Init]] Failed to init the repository: $($Env:RESTIC_REPOSITORY)"
         exit 1
     }
@@ -67,7 +68,7 @@ function Invoke-Maintenance {
 
     Write-Output "[[Maintenance]] Start $(Get-Date)" | Tee-Object -Append $SuccessLog
     $maintenance_success = $true
-    Start-Sleep 120
+    Start-Sleep 5
 
     # forget snapshots based upon the retention policy
     Write-Output "[[Maintenance]] Start forgetting..." | Tee-Object -Append $SuccessLog
@@ -97,6 +98,15 @@ function Invoke-Maintenance {
     if ($maintenance_success -eq $true) {
         $Script:ResticStateLastMaintenance = Get-Date
         $Script:ResticStateMaintenanceCounter = 0
+    }
+}
+
+function Invoke-HistoryCheck {
+    Param($SuccessLog, $ErrorLog)
+    $logs = Get-ChildItem $LogPath -Filter '*err.txt' | ForEach-Object { $_.Length -gt 0 }
+    $logs_with_success = ($logs | Where-Object { ($_ -eq $false) }).Count
+    if ($logs.Count -gt 0) {
+        Write-Output "[[History]] Backup success rate: $logs_with_success / $($logs.Count) ($(($logs_with_success / $logs.Count).tostring("P")))" | Tee-Object -Append $SuccessLog
     }
 }
 
@@ -173,4 +183,191 @@ function Invoke-Backup {
     Write-Output "[[Backup]] End $(Get-Date)" | Tee-Object -Append $SuccessLog
 
     return $return_value
+}
+
+function Invoke-ConnectivityCheck {
+    Param($SuccessLog, $ErrorLog)
+    
+    if ($InternetTestAttempts -le 0) {
+        Write-Output "[[Internet]] Internet connectivity check disabled. Skipping." | Tee-Object -Append $SuccessLog    
+        return $true
+    }
+
+    # skip the internet connectivity check for local repos
+    if (Test-Path $env:RESTIC_REPOSITORY) {
+        Write-Output "[[Internet]] Local repository. Skipping internet connectivity check." | Tee-Object -Append $SuccessLog    
+        return $true
+    }
+
+    $repository_host = ''
+
+    # use generic internet service for non-specific repo types (e.g. swift:, rclone:, etc. )
+    if (($env:RESTIC_REPOSITORY -match "^swift:") -or 
+        ($env:RESTIC_REPOSITORY -match "^rclone:")) {
+        $repository_host = "cloudflare.com"
+    }
+    elseif ($env:RESTIC_REPOSITORY -match "^b2:") {
+        $repository_host = "api.backblazeb2.com"
+    }
+    elseif ($env:RESTIC_REPOSITORY -match "^azure:") {
+        $repository_host = "azure.microsoft.com"
+    }
+    elseif ($env:RESTIC_REPOSITORY -match "^gs:") {
+        $repository_host = "storage.googleapis.com"
+    }
+    else {
+        # parse connection string for hostname
+        # Uri parser doesn't handle leading connection type info (s3:, sftp:, rest:)
+        $connection_string = $env:RESTIC_REPOSITORY -replace "^s3:" -replace "^sftp:" -replace "^rest:"
+        if (-not ($connection_string -match "://")) {
+            # Uri parser expects to have a protocol. Add 'https://' to make it parse correctly.
+            $connection_string = "https://" + $connection_string
+        }
+        $repository_host = ([System.Uri]$connection_string).DnsSafeHost
+    }
+
+    if ([string]::IsNullOrEmpty($repository_host)) {
+        Write-Output "[[Internet]] Repository string could not be parsed." | Tee-Object -Append $SuccessLog | Tee-Object -Append $ErrorLog
+        return $false
+    }
+
+    # test for internet connectivity
+    $connections = 0
+    $sleep_count = $InternetTestAttempts
+    while ($true) {
+        $connections = Get-NetRoute | Where-Object DestinationPrefix -eq '0.0.0.0/0' | Get-NetIPInterface | Where-Object ConnectionState -eq 'Connected' | Measure-Object | ForEach-Object { $_.Count }
+        if ($sleep_count -le 0) {
+            Write-Output "[[Internet]] Connection to repository ($repository_host) could not be established." | Tee-Object -Append $SuccessLog | Tee-Object -Append $ErrorLog
+            return $false
+        }
+        if (($null -eq $connections) -or ($connections -eq 0)) {
+            Write-Output "[[Internet]] Waiting for internet connectivity... $sleep_count" | Tee-Object -Append $SuccessLog
+            Start-Sleep 30
+        }
+        elseif (!(Test-Connection -ComputerName $repository_host -Quiet)) {
+            Write-Output "[[Internet]] Waiting for connection to repository ($repository_host)... $sleep_count" | Tee-Object -Append $SuccessLog
+            Start-Sleep 30
+        }
+        else {
+            return $true
+        }
+        $sleep_count--
+    }
+}
+
+function Send-Healthcheck {
+    Param($SuccessLog, $ErrorLog)
+
+    $status = "SUCCESS"
+    $success_after_failure = $false
+    $body = ""
+    if (($null -ne $SuccessLog) -and (Test-Path $SuccessLog) -and (Get-Item $SuccessLog).Length -gt 0) {
+        $body = $(Get-Content -Raw $SuccessLog)
+        # if previous run contained an error, send the success email confirming that the error has been resolved
+        # (i.e. get previous error log, if it's not empty, trigger the send of the success-after-failure email)
+        $previous_error_log = Get-ChildItem $LogPath -Filter '*err.txt' | Sort-Object -Descending LastWriteTime | Select-Object -Skip 1 | Select-Object -First 1
+        if (($null -ne $previous_error_log) -and ($previous_error_log.Length -gt 0)) {
+            $success_after_failure = $true
+        }
+    }
+
+    else {
+        $body = "Critical Error! Restic backup log is empty or missing. Check log file path."
+        $status = "ERROR"
+    }
+    # $attachments = @{}
+    if (($null -ne $ErrorLog) -and (Test-Path $ErrorLog) -and (Get-Item $ErrorLog).Length -gt 0) {
+        # $attachments = @{Attachments = $ErrorLog}
+        $status = "ERROR"
+    }
+    if ((($status -eq "SUCCESS") -and ($UseHealthcheck -ne $false)) -or ((($status -eq "ERROR") -or $success_after_failure) -and ($UseHealthcheck -ne $false))) {
+        # $subject = "$env:COMPUTERNAME Restic Backup Report [$status]"
+
+        # create a temporary error log to log errors; can't write to the same file that Send-MailMessage is reading
+        $temp_error_log = $ErrorLog + "_temp"
+
+        # Send-MailMessage @ResticEmailConfig -From $ResticEmailFrom -To $ResticEmailTo -Credential $credentials -Subject $subject -Body $body @attachments 3>&1 2>> $temp_error_log
+        # Send success ping to healthchecks (NOTE: unique URL for each backed-up device)
+        $error_flag = $(If ($status -eq "ERROR") { "fail" } Else { "0" })
+        Invoke-RestMethod -Method Post -Uri "$hc_url/$error_flag" -Body $body | Out-Null
+
+        if (-not $?) {
+            Write-Output "[[Email]] Sending email completed with errors" | Tee-Object -Append $temp_error_log | Tee-Object -Append $SuccessLog
+        }
+
+        # join error logs and remove the temporary
+        if (Test-Path $temp_error_log) {
+            Get-Content $temp_error_log | Add-Content $ErrorLog
+            Remove-Item $temp_error_log
+        }
+    }
+}
+
+function Invoke-BackupProcess {
+    param (
+        $hc_url
+    )
+
+    # Start Backup Timer
+    Invoke-RestMethod "$hc_url/start" | Out-Null
+
+    Get-BackupState
+
+    if (!(Test-Path $LogPath)) {
+        Write-Error "[[Backup]] Log file directory $LogPath does not exist. Exiting."
+        exit
+    }
+
+    $error_count = 0;
+    $attempt_count = $GlobalRetryAttempts
+
+    while ($attempt_count -gt 0) {
+        # setup logfiles
+        $timestamp = Get-Date -Format FileDateTime
+        $success_log = Join-Path $LogPath ($timestamp + ".log.txt")
+        $error_log = Join-Path $LogPath ($timestamp + ".err.txt")
+        
+        $internet_available = Invoke-ConnectivityCheck $success_log $error_log
+        if ($internet_available -eq $true) { 
+            Invoke-Unlock $success_log $error_log
+            $backup_success = Invoke-Backup $success_log $error_log
+            if ($backup_success) {
+                Invoke-Maintenance $success_log $error_log
+            }
+
+            if (!(Test-Path $error_log) -or ((Get-Item $error_log).Length -eq 0)) {
+                # successful with no errors; end
+                $total_attempts = $GlobalRetryAttempts - $attempt_count + 1
+                Write-Output "Succeeded after $total_attempts attempt(s)" | Tee-Object -Append $success_log
+                Invoke-HistoryCheck $success_log $error_log
+                Send-Healthcheck $success_log $error_log
+                break;
+            }
+        }
+
+        Write-Output "[[General]] Errors found. Log: $error_log" | Tee-Object -Append $success_log | Tee-Object -Append $error_log
+        $error_count++
+        
+        $attempt_count--
+        if ($attempt_count -gt 0) {
+            Write-Output "[[Retry]] Sleeping for 15 min and then retrying..." | Tee-Object -Append $success_log
+        }
+        else {
+            Write-Output "[[Retry]] Retry limit has been reached. No more attempts to backup will be made." | Tee-Object -Append $success_log
+        }
+        if ($internet_available -eq $true) {
+            Invoke-HistoryCheck $success_log $error_log
+            Send-Healthcheck $success_log $error_log
+        }
+        if ($attempt_count -gt 0) {
+            Start-Sleep (15 * 60)
+        }
+    }    
+
+    Set-BackupState
+
+    # cleanup older log files
+    Get-ChildItem $LogPath | Where-Object { $_.CreationTime -lt $(Get-Date).AddDays(-$LogRetentionDays) } | Remove-Item
+
+    exit $error_count
 }
