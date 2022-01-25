@@ -7,7 +7,7 @@ COPY --from=restic /usr/bin/restic /usr/bin/restic
 RUN apk add --update --no-cache ca-certificates fuse openssh-client tzdata
 
 # RESTIC_REPOSITORY may be /mnt/restic or a remote repo (such as B2 or S3)
-ENV RESTIC_REPOSITORY=""
+ENV RESTIC_REPOSITORY="/mnt/restic"
 ENV RESTIC_PASSWORD=""
 
 # local restic repo (Repo2) is copied to remote restic repo
@@ -23,7 +23,7 @@ ENV RESTIC_FORGET_ARGS=""
 ENV RESTIC_JOB_ARGS=""
 
 # Healthcheck
-ENV USE_HEALTHCHECK="Y"
+ENV USE_HEALTHCHECK="N"
 ENV HC_PING=""
 
 # /data is the dir where you have to put the data to be backed up
@@ -32,6 +32,15 @@ VOLUME /data
 # /mnt/copy contains an existing restic repo to copy from
 VOLUME /mnt/copy
 
+COPY backup.ps1 /bin/backup/backup.ps1
+COPY entry.ps1 /entry.ps1
+
+# TODO: find better config file locations and move logs into correct folder
+COPY secrets.ps1 /bin/backup/secrets.ps1
+COPY config.ps1 /bin/backup/config.ps1
+COPY local.exclude /bin/backup/local.exclude
+RUN mkdir -p /var/log/restic/
+
 WORKDIR "/"
 
-CMD ["pwsh"]
+CMD ["pwsh", "/entry.ps1"]

@@ -176,6 +176,7 @@ function Invoke-Backup {
         }
         else {
             # Launch Restic
+            Write-Output "[[Backup]] Backing up $folder_list" | Tee-Object -Append $SuccessLog
             & $ResticBin backup $folder_list --tag "$tag" --exclude-file=$LocalExcludeFile 3>&1 2>> $ErrorLog | Tee-Object -Append $SuccessLog
             if (-not $?) {
                 Write-Output "[[Backup]] Completed with errors" | Tee-Object -Append $ErrorLog | Tee-Object -Append $SuccessLog
