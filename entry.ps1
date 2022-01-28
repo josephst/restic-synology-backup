@@ -22,7 +22,7 @@ Write-Output "$env:BACKUP_CRON /usr/bin/flock -n /var/run/backup.lock /bin/backu
 # Make sure log file exists before starting tail
 touch "/var/log/cron.log"
 
-crond -l 0
+crond
 
 Write-Output "Container started with args: $args"
 
