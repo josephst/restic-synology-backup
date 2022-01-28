@@ -1,10 +1,13 @@
+#!/usr/bin/pwsh
+
 # =========== start configuration =========== # 
 
 # set restic configuration parmeters (destination, passwords, etc.)
-$SecretsScript = Join-Path $PSScriptRoot "secrets.ps1"
+# TODO: put these in a configuration directory
+$SecretsScript = Join-Path "/etc/backup" "secrets.ps1"
 
 # backup configuration variables
-$ConfigScript = Join-Path $PSScriptRoot "config.ps1"
+$ConfigScript = Join-Path "etc/backup" "config.ps1"
 
 # =========== end configuration =========== #
 
@@ -422,3 +425,5 @@ function Invoke-Main {
 
     return $error_count
 }
+
+Invoke-Main

@@ -7,7 +7,9 @@ Write-Output "Copy from ./dataForBackup/copy (existing local repo) to ./test/rem
 
 $dir = $PSScriptRoot
 
-Write-Output $dir
+$setA = Join-Path $dir "/dataForBackup/setA"
+$copy = Join-Path $dir "/dataForBackup/copy"
+$remoteRepo = Join-Path $dir "/test/remoteRepo"
 
 docker run --privileged --name backup-test `
  -h "restic-backup" `
@@ -16,7 +18,7 @@ docker run --privileged --name backup-test `
  -e "RESTIC_PASSWORD2=Foobar2" `
  -e "BACKUP_CRON=* * * * *" `
  -e "USE_HEALTHCHECK=N" `
- -v "$dir/dataForBackup/setA:/data" `
- -v "$dir/dataForBackup/copy:/mnt/copy" `
- -v "$dir/test/remoteRepo:/mnt/restic" `
+ -v "$($setA):/data" `
+ -v "$($copy):/mnt/copy" `
+ -v "$($remoteRepo):/mnt/restic" `
  -t restic-synology-backup

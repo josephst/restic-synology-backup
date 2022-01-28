@@ -11,7 +11,6 @@ function Test-Backup {
     param (
     )
 
-    . ./backup.ps1
     . $SecretsScript
     . $ConfigScript
 
@@ -23,7 +22,7 @@ function Test-Backup {
     }
 
     # Run backup
-    Invoke-Main
+    . .\backup.ps1
 }
 
 function New-LocalRepo {
@@ -101,6 +100,9 @@ function Remove-Backup {
         $response = Read-Host -Prompt $msg
         if ($response -eq 'y') {
             Remove-Item -Recurse -Force "$repo/*"
+        } else {
+            Write-Error "Not removing data, exiting."
+            exit 1
         }
     }
     Remove-Item -Recurse -Force logs/*

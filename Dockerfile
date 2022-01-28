@@ -30,15 +30,16 @@ VOLUME /data
 # /mnt/copy contains an existing restic repo to copy from
 VOLUME /mnt/copy
 
-COPY backup.ps1 /bin/backup/backup.ps1
+COPY backup.ps1 /bin/backup/backup
 COPY entry.ps1 /entry.ps1
 
 # TODO: find better config file locations and move logs into correct folder
-COPY secrets.ps1 /bin/backup/secrets.ps1
-COPY config.ps1 /bin/backup/config.ps1
-COPY local.exclude /bin/backup/local.exclude
+COPY secrets.ps1 /etc/backup/secrets.ps1
+COPY config.ps1 /etc/backup/config.ps1
+COPY local.exclude /etc/backup/local.exclude
 RUN mkdir -p /var/log/restic/
 
 WORKDIR "/"
 
-CMD ["pwsh", "/entry.ps1"]
+ENTRYPOINT [ "/entry.ps1" ]
+CMD ["tail", "-fn0", "/var/log/cron.log"]
