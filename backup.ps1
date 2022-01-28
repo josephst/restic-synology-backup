@@ -7,7 +7,7 @@
 $SecretsScript = Join-Path "/etc/backup" "secrets.ps1"
 
 # backup configuration variables
-$ConfigScript = Join-Path "etc/backup" "config.ps1"
+$ConfigScript = Join-Path "/etc/backup" "config.ps1"
 
 # =========== end configuration =========== #
 

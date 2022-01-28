@@ -14,13 +14,15 @@ if ($status -eq $false) {
 Write-Information "Setup backup."
 
 Write-Output "Setup backup cron job with cron expression BACKUP_CRON: $env:BACKUP_CRON"
-Write-Output "$env:BACKUP_CRON /usr/bin/flock -n /var/run/backup.lock pwsh -c '. /bin/backup/backup && Invoke-Main' >> /var/log/cron.log 2&>1" `
- | Out-File "/var/spool/cron/crontabs/root"
+# Write-Output "$env:BACKUP_CRON /usr/bin/flock -n /var/run/backup.lock /bin/backup/backup >> /var/log/cron.log 2&>1" `
+#  | Out-File "/var/spool/cron/crontabs/root"
+Write-Output "$env:BACKUP_CRON /usr/bin/flock -n /var/run/backup.lock /bin/backup/backup >> /var/log/cron.log 2&>1" `
+| Out-File -Append "/var/spool/cron/crontabs/root"
 
 # Make sure log file exists before starting tail
 touch "/var/log/cron.log"
 
-crond
+crond -l 0
 
 Write-Output "Container started with args: $args"
 
