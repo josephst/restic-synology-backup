@@ -230,16 +230,16 @@ function Invoke-Copy {
 }
 
 function Invoke-ConnectivityCheck {
-    Param($SuccessLog, $ErrorLog)
+    Param($BackupLog)
     
     if ($InternetTestAttempts -le 0) {
-        Write-Output "[[Internet]] Internet connectivity check disabled. Skipping." | Tee-Object -Append $SuccessLog    
+        Write-Output "[[Internet]] Internet connectivity check disabled. Skipping." | Tee-Object -Append $BackupLog    
         return $true
     }
 
     # skip the internet connectivity check for local repos
     if (Test-Path $env:RESTIC_REPOSITORY) {
-        Write-Output "[[Internet]] Local repository. Skipping internet connectivity check." | Tee-Object -Append $SuccessLog    
+        Write-Output "[[Internet]] Local repository. Skipping internet connectivity check." | Tee-Object -Append $BackupLog    
         return $true
     }
 
@@ -271,7 +271,7 @@ function Invoke-ConnectivityCheck {
     }
 
     if ([string]::IsNullOrEmpty($repository_host)) {
-        Write-Output "[[Internet]] Repository string could not be parsed." | Tee-Object -Append $SuccessLog | Tee-Object -Append $ErrorLog
+        Write-Error "[[Internet]] Repository string could not be parsed." | Tee-Object -Append $BackupLog
         return $false
     }
 
@@ -281,15 +281,15 @@ function Invoke-ConnectivityCheck {
     while ($true) {
         $connections = Get-NetRoute | Where-Object DestinationPrefix -eq '0.0.0.0/0' | Get-NetIPInterface | Where-Object ConnectionState -eq 'Connected' | Measure-Object | ForEach-Object { $_.Count }
         if ($sleep_count -le 0) {
-            Write-Output "[[Internet]] Connection to repository ($repository_host) could not be established." | Tee-Object -Append $SuccessLog | Tee-Object -Append $ErrorLog
+            Write-Error "[[Internet]] Connection to repository ($repository_host) could not be established." | Tee-Object -Append $BackupLog
             return $false
         }
         if (($null -eq $connections) -or ($connections -eq 0)) {
-            Write-Output "[[Internet]] Waiting for internet connectivity... $sleep_count" | Tee-Object -Append $SuccessLog
+            Write-Output "[[Internet]] Waiting for internet connectivity... $sleep_count" | Tee-Object -Append $BackupLog
             Start-Sleep 30
         }
         elseif (!(Test-Connection -ComputerName $repository_host -Quiet)) {
-            Write-Output "[[Internet]] Waiting for connection to repository ($repository_host)... $sleep_count" | Tee-Object -Append $SuccessLog
+            Write-Output "[[Internet]] Waiting for connection to repository ($repository_host)... $sleep_count" | Tee-Object -Append $BackupLog
             Start-Sleep 30
         }
         else {
@@ -300,27 +300,32 @@ function Invoke-ConnectivityCheck {
 }
 
 function Send-Healthcheck {
-    Param($SuccessLog, $ErrorLog)
+    Param($BackupLog)
 
     $status = "SUCCESS"
     $success_after_failure = $false
-    $body = ""
-    if (($null -ne $SuccessLog) -and (Test-Path $SuccessLog) -and (Get-Item $SuccessLog).Length -gt 0) {
-        $body = $(Get-Content -Raw $SuccessLog)
-        # if previous run contained an error, send the success email confirming that the error has been resolved
-        # (i.e. get previous error log, if it's not empty, trigger the send of the success-after-failure email)
-        $previous_error_log = Get-ChildItem $LogPath -Filter '*err.txt' | Sort-Object -Descending LastWriteTime | Select-Object -Skip 1 | Select-Object -First 1
-        if (($null -ne $previous_error_log) -and ($previous_error_log.Length -gt 0)) {
-            $success_after_failure = $true
-        }
-    }
+    # $body = ""
+    # if (($null -ne $SuccessLog) -and (Test-Path $SuccessLog) -and (Get-Item $SuccessLog).Length -gt 0) {
+    #     $body = $(Get-Content -Raw $SuccessLog)
+    #     # if previous run contained an error, send the success email confirming that the error has been resolved
+    #     # (i.e. get previous error log, if it's not empty, trigger the send of the success-after-failure email)
+    #     $previous_error_log = Get-ChildItem $LogPath -Filter '*err.txt' | Sort-Object -Descending LastWriteTime | Select-Object -Skip 1 | Select-Object -First 1
+    #     if (($null -ne $previous_error_log) -and ($previous_error_log.Length -gt 0)) {
+    #         $success_after_failure = $true
+    #     }
+    # }
 
-    else {
-        $body = "Critical Error! Restic backup log is empty or missing. Check log file path."
+    # else {
+        # $body = "Critical Error! Restic backup log is empty or missing. Check log file path."
+        # $status = "ERROR"
+    # }
+    # $attachments = @{}
+
+    if (($null -eq $BackupLog) -or (-not (Test-Path $BackupLog)) -or (Get-Item $BackupLog).Length -eq 0) {
+        # Restic backup log is missing or empty
         $status = "ERROR"
     }
-    # $attachments = @{}
-    if (($null -ne $ErrorLog) -and (Test-Path $ErrorLog) -and (Get-Item $ErrorLog).Length -gt 0) {
+    if ($Error.Count -ne 0) {
         # $attachments = @{Attachments = $ErrorLog}
         $status = "ERROR"
     }
@@ -328,21 +333,15 @@ function Send-Healthcheck {
         # $subject = "$env:COMPUTERNAME Restic Backup Report [$status]"
 
         # create a temporary error log to log errors; can't write to the same file that Send-MailMessage is reading
-        $temp_error_log = $ErrorLog + "_temp"
+        # $temp_error_log = $ErrorLog + "_temp"
 
         # Send-MailMessage @ResticEmailConfig -From $ResticEmailFrom -To $ResticEmailTo -Credential $credentials -Subject $subject -Body $body @attachments 3>&1 2>> $temp_error_log
         # Send success ping to healthchecks (NOTE: unique URL for each backed-up device)
-        $error_flag = $(If ($status -eq "ERROR") { "fail" } Else { "0" })
-        Invoke-RestMethod -Method Post -Uri "$hc_url/$error_flag" -Body $body | Out-Null
+        # $error_flag = $(If ($status -eq "ERROR") { "fail" } Else { "0" })
+        Invoke-RestMethod -Method Post -Uri "$hc_url/$ErrorCount.Value" -Body $body | Out-Null
 
         if (-not $?) {
-            Write-Output "[[Email]] Sending email completed with errors" | Tee-Object -Append $temp_error_log | Tee-Object -Append $SuccessLog
-        }
-
-        # join error logs and remove the temporary
-        if (Test-Path $temp_error_log) {
-            Get-Content $temp_error_log | Add-Content $ErrorLog
-            Remove-Item $temp_error_log
+            Write-Error "[[Email]] Sending email completed with errors" | Tee-Object -Append $BackupLog
         }
     }
 }
@@ -364,53 +363,53 @@ function Invoke-Main {
         exit
     }
 
-    $error_count = 0;
-    $attempt_count = $GlobalRetryAttempts
+    $Error.Clear()
+    [int]$attempt_count = $GlobalRetryAttempts
 
     while ($attempt_count -gt 0) {
         # setup logfiles
         $timestamp = Get-Date -Format FileDateTime
-        $success_log = Join-Path $LogPath ($timestamp + ".log.txt")
-        $error_log = Join-Path $LogPath ($timestamp + ".err.txt")
+        $backup_log = Join-Path $LogPath ($timestamp + ".log.txt")
+        # $error_log = Join-Path $LogPath ($timestamp + ".err.txt")
         
-        $internet_available = Invoke-ConnectivityCheck $success_log $error_log
+        $internet_available = Invoke-ConnectivityCheck $backup_log
         if ($internet_available -eq $true) { 
-            Invoke-Unlock $success_log $error_log
-            $backup_success = Invoke-Backup $success_log $error_log
+            Invoke-Unlock $backup_log $error_log
+            $backup_success = Invoke-Backup $backup_log $error_log
             $copy_success = $true
             if ($CopyLocalRepo) {
-                $copy_success = Invoke-Copy $success_log $error_log
+                $copy_success = Invoke-Copy $backup_log $error_log
             }
             if ($backup_success && $copy_success) {
-                Invoke-Maintenance $success_log $error_log
+                Invoke-Maintenance $backup_log $error_log
             }
 
             if (!(Test-Path $error_log) -or ((Get-Item $error_log).Length -eq 0)) {
                 # successful with no errors; end
                 $total_attempts = $GlobalRetryAttempts - $attempt_count + 1
-                Write-Output "Succeeded after $total_attempts attempt(s)" | Tee-Object -Append $success_log
-                Invoke-HistoryCheck $success_log $error_log
+                Write-Output "Succeeded after $total_attempts attempt(s)" | Tee-Object -Append $backup_log
+                Invoke-HistoryCheck $backup_log $error_log
                 if ($UseHealthcheck) {
-                    Send-Healthcheck $success_log $error_log
+                    Send-Healthcheck $backup_log $error_log
                 }
                 break;
             }
         }
 
-        Write-Output "[[General]] Errors found. Log: $error_log" | Tee-Object -Append $success_log | Tee-Object -Append $error_log
+        Write-Output "[[General]] Errors found. Log: $error_log" | Tee-Object -Append $backup_log
         $error_count++
         
         $attempt_count--
         if ($attempt_count -gt 0) {
-            Write-Output "[[Retry]] Sleeping for 15 min and then retrying..." | Tee-Object -Append $success_log
+            Write-Output "[[Retry]] Sleeping for 15 min and then retrying..." | Tee-Object -Append $backup_log
         }
         else {
-            Write-Output "[[Retry]] Retry limit has been reached. No more attempts to backup will be made." | Tee-Object -Append $success_log
+            Write-Output "[[Retry]] Retry limit has been reached. No more attempts to backup will be made." | Tee-Object -Append $backup_log
         }
         if ($internet_available -eq $true) {
-            Invoke-HistoryCheck $success_log $error_log
+            Invoke-HistoryCheck $backup_log $error_log
             if ($UseHealthcheck) {
-                Send-Healthcheck $success_log $error_log
+                Send-Healthcheck $backup_log ([ref]$error_log)
             }
         }
         if ($attempt_count -gt 0) {
