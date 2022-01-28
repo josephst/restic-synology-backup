@@ -22,7 +22,7 @@ that is both on local PCs backed up to the NAS and additionally on the NAS
 4. Provide support for forgetting old backups and testing backups
 
 ## TODO
-- [ ] ⌚ Cron: add support for cron to keep the container running and perform backups every day (or every 1m, for testing)
+- [x] ⌚ Cron: add support for cron to keep the container running and perform backups every day (or every 1m, for testing)
 - [ ] 📰 Better logging: log output from each script run (or cron job trigger) to its own file
 and clean up the previous file at the start of each run
 - [ ] 🚧 Configuration should be more based on environment variables (which can be changed more easily)
@@ -47,6 +47,11 @@ Good for rapid iteration and making changes to `backup.ps1` script.
   - ⚠ Depends on a `.devcontainer/devcontainer.env` script to override some Docker variables
   such as `HC_PING` and `RESTIC_PASSWORD`
 - `build.ps1` and `run.ps1` scripts: builds a new copy of the container and run a test backup
+  - Before running for the first time, make sure to initialize the remote repo
+  (optionally, using an existing repo if copying from existing Restic backups):
+  ```
+  restic init -r ./test/remoteRepo --copyChunkerParams --repo2 ./dataForBackup/copy
+  ```
 
 ## Assumptions
 Script assumes that local repo and remote repo are already initialized.
