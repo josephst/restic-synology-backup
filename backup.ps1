@@ -17,6 +17,9 @@ $Script:ResticStateLastMaintenance = $null
 $Script:ResticStateLastDeepMaintenance = $null
 $Script:ResticStateMaintenanceCounter = $null
 
+# globals for error counting
+$ErrorCount = 0
+
 function Get-BackupState {
     if (Test-Path $StateFile) {
         Import-Clixml $StateFile | ForEach-Object { Set-Variable -Scope Script $_.Name $_.Value }
@@ -28,42 +31,23 @@ function Set-BackupState {
 
 # unlock the repository if need be
 function Invoke-Unlock {
-    Param($SuccessLog, $ErrorLog)
+    Param($BackupLog)
 
-    $locks = & $ResticBin list locks --no-lock -q 3>&1 2>> $ErrorLog
+    $locks = & $ResticBin list locks --no-lock -q 3>&1 2>> $BackupLog
     if ($locks.Length -gt 0) {
         # unlock the repository (assumes this machine is the only one that will ever use it)
-        & $ResticBin unlock 3>&1 2>> $ErrorLog | Tee-Object -Append $SuccessLog
-        Write-Output "[[Unlock]] Repository was locked. Unlocking. Past script failure?" | Tee-Object -Append $ErrorLog | Tee-Object -Append $SuccessLog
-        Start-Sleep 120 
-    }
-}
-
-function New-Repo {
-    Write-Output "[[Init]] Creating new restic repository with restic init"
-    if ($null -eq $env:RESTIC_REPOSITORY2) {
-        & $ResticBin init
-    } else {
-        # if there's a second repo we'll be copying from,
-        # use its chunker params for data dedup
-        & $ResticBin init --copy-chunker-params
-    }
-    
-    $out = $?
-    
-    if (-not $out) {
-        Write-Output "[[Init]] Failed to init the repository: $($Env:RESTIC_REPOSITORY)"
-        exit 1
+        & $ResticBin unlock 3>&1 2>> $BackupLog | Tee-Object -Append $BackupLog
+        Write-Output "[[Unlock]] Repository was locked. Unlocking. Past script failure?" | Tee-Object -Append $BackupLog
+        Start-Sleep 60
     }
 }
 
 function Invoke-Maintenance {
-    Param($SuccessLog, $ErrorLog)
+    Param($BackupLog)
     
     # skip maintenance if disabled
     if ($SnapshotMaintenanceEnabled -eq $false) {
-        Write-Output "[[Maintenance]] Skipped - maintenance disabled" | Tee-Object -Append $SuccessLog
-        return
+        Write-Output "[[Maintenance]] Skipped - maintenance disabled" | Tee-Object -Append $BackupLog
     }
 
     # skip maintenance if it's been done recently
@@ -71,39 +55,47 @@ function Invoke-Maintenance {
         $Script:ResticStateMaintenanceCounter += 1
         $delta = New-TimeSpan -Start $ResticStateLastMaintenance -End $(Get-Date)
         if (($delta.Days -lt $SnapshotMaintenanceDays) -and ($ResticStateMaintenanceCounter -lt $SnapshotMaintenanceInterval)) {
-            Write-Output "[[Maintenance]] Skipped - last maintenance $ResticStateLastMaintenance ($($delta.Days) days, $ResticStateMaintenanceCounter backups ago)" | Tee-Object -Append $SuccessLog
+            Write-Output "[[Maintenance]] Skipped - last maintenance $ResticStateLastMaintenance ($($delta.Days) days, $ResticStateMaintenanceCounter backups ago)" | Tee-Object -Append $BackupLog
             return
         }
     }
 
-    Write-Output "[[Maintenance]] Start $(Get-Date)" | Tee-Object -Append $SuccessLog
+    Write-Output "[[Maintenance]] Start $(Get-Date)" | Tee-Object -Append $BackupLog
     $maintenance_success = $true
     Start-Sleep 5
 
     # forget snapshots based upon the retention policy
-    Write-Output "[[Maintenance]] Start forgetting..." | Tee-Object -Append $SuccessLog
-    & $ResticBin forget $SnapshotRetentionPolicy 3>&1 2>> $ErrorLog | Tee-Object -Append $SuccessLog
+    Write-Output "[[Maintenance]] Start forgetting..." | Tee-Object -Append $BackupLog
+    & $ResticBin forget $SnapshotRetentionPolicy *>&1 | Tee-Object -Append $BackupLog
     if (-not $?) {
-        Write-Output "[[Maintenance]] Forget operation completed with errors" | Tee-Object -Append $ErrorLog | Tee-Object -Append $SuccessLog
+        Write-Error "[ERROR] [[Maintenance]] Forget operation completed with errors" *>&1 | Tee-Object -Append $BackupLog
+        $ErrorCount++
         $maintenance_success = $false
     }
 
     # prune (remove) data from the backup step. Running this separate from `forget` because
     #   `forget` only prunes when it detects removed snapshots upon invocation, not previously removed
-    Write-Output "[[Maintenance]] Start pruning..." | Tee-Object -Append $SuccessLog
-    & $ResticBin prune $SnapshotPrunePolicy 3>&1 2>> $ErrorLog | Tee-Object -Append $SuccessLog
+    Write-Output "[[Maintenance]] Start pruning..." | Tee-Object -Append $BackupLog
+    & $ResticBin prune $SnapshotPrunePolicy *>&1 | Tee-Object -Append $BackupLog
     if (-not $?) {
-        Write-Output "[[Maintenance]] Prune operation completed with errors" | Tee-Object -Append $ErrorLog | Tee-Object -Append $SuccessLog
+        Write-Error "[ERROR] [[Maintenance]] Prune operation completed with errors" *>&1 `
+        | Tee-Object -Append $BackupLog
+        $ErrorCount++
         $maintenance_success = $false
     }
 
     # perform quick data check (full data checks are done by datacheck.ps1)
-    Write-Output "[[Maintenance]] Performing fast data check - deep '--read-data' check last ran $ResticStateLastDeepMaintenance ($($delta.Days) days ago)" | Tee-Object -Append $SuccessLog
-    Write-Output "[[Maintenance]] Run `datacheck.ps1` for a full data check" | Tee-Object -Append $SuccessLog
+    Write-Output "[[Maintenance]] Performing fast data check - deep '--read-data' check last ran $ResticStateLastDeepMaintenance ($($delta.Days) days ago)" | Tee-Object -Append $BackupLog
+    # Write-Output "[[Maintenance]] Run `datacheck.ps1` for a full data check" | Tee-Object -Append $BackupLog
 
-    & $ResticBin check @data_check 3>&1 2>> $ErrorLog | Tee-Object -Append $SuccessLog
+    & $ResticBin check *>&1 | Tee-Object -Append $BackupLog
+    if (-not $?) {
+        Write-Error "[ERROR] [[Maintenance]] It looks like the data check failed! Possible data corruption?" *>&1 `
+            $ErrorCount++
+        | Tee-Object -Append $BackupLog
+    }
 
-    Write-Output "[[Maintenance]] End $(Get-Date)" | Tee-Object -Append $SuccessLog
+    Write-Output "[[Maintenance]] End $(Get-Date)" | Tee-Object -Append $BackupLog
     
     if ($maintenance_success -eq $true) {
         $Script:ResticStateLastMaintenance = Get-Date
@@ -111,87 +103,49 @@ function Invoke-Maintenance {
     }
 }
 
-function Invoke-HistoryCheck {
-    Param($SuccessLog, $ErrorLog)
-    $logs = Get-ChildItem $LogPath -Filter '*err.txt' | ForEach-Object { $_.Length -gt 0 }
-    $logs_with_success = ($logs | Where-Object { ($_ -eq $false) }).Count
-    if ($logs.Count -gt 0) {
-        Write-Output "[[History]] Backup success rate: $logs_with_success / $($logs.Count) ($(($logs_with_success / $logs.Count).tostring("P")))" | Tee-Object -Append $SuccessLog
-    }
-}
+# TODO: find a way to use history check again (need a way to store success/fail of previous backups)
+# function Invoke-HistoryCheck {
+#     Param($BackupLog)
+#     Write-Output "[[History]] Backup success rate: $ResticStateSuccessfulBackups / $ResticStateTotalBackups ($(($ResticStateSuccessfulBackups / $ResticStateTotalBackups).ToString("P")))" | Tee-Object -Append $BackupLog
+# }
 
 function Invoke-Backup {
-    Param($SuccessLog, $ErrorLog)
+    Param($BackupLog)
 
-    Write-Output "[[Backup]] Start $(Get-Date)" | Tee-Object -Append $SuccessLog
+    Write-Output "[[Backup]] Start $(Get-Date)" | Tee-Object -Append $BackupLog
     $return_value = $true
-    $starting_location = Get-Location
-    ForEach ($item in $BackupSources.GetEnumerator()) {
+    ForEach ($folder in $BackupSources.GetEnumerator()) {
+        # BackupSources is an array of folder names
+        Write-Output "[[Backup]] Start $(Get-Date) [$folder]" | Tee-Object -Append $BackupLog
 
-        # Get the source drive letter or identifier and set as the root path
-        $root_path = $item.Key
-        $tag = $item.Key
-
-        Write-Output "[[Backup]] Start $(Get-Date) [$tag]" | Tee-Object -Append $SuccessLog
-        
-        # build the list of folders to backup
-        $folder_list = New-Object System.Collections.Generic.List[System.Object]
-        if ($item.Value.Count -eq 0) {
-            # backup everything in the root if no folders are provided
-            $folder_list.Add($root_path)
+        if (Test-Path $folder) {
+            # Launch Restic
+            Write-Output "[[Backup]] Backing up $folder" | Tee-Object -Append $BackupLog
+            & $ResticBin backup $folder --tag "$folder" --exclude-file=$LocalExcludeFile --one-file-system *>&1 `
+            | Tee-Object -Append $BackupLog
+            if (-not $?) {
+                Write-Error "[ERROR] [[Backup]] Completed with errors" *>&1 | Tee-Object -Append $BackupLog
+                $ErrorCount++
+                $return_value = $false
+            }
         }
         else {
-            # Build the list of folders from settings
-            ForEach ($path in $item.Value) {
-                $p = '"{0}"' -f ((Join-Path $root_path $path) -replace "\\$")
-                
-                if (Test-Path ($p -replace '"')) {
-                    # add the folder if it exists
-                    $folder_list.Add($p)
-                }
-                else {
-                    # if the folder doesn't exist, log a warning/error
-                    $ignore_error = ($null -ne $IgnoreMissingBackupSources) -and $IgnoreMissingBackupSources
-                    $warning_message = { Write-Output "[[Backup]] Warning - backup path $p not found." }
-                    if ($ignore_error) {
-                        & $warning_message | Tee-Object -Append $SuccessLog
-                    }
-                    else {
-                        & $warning_message | Tee-Object -Append $SuccessLog | Tee-Object -Append $ErrorLog
-                        $return_value = $false
-                    }
-                }
-            }
-
-        }
-        
-        if (-not $folder_list) {
-            # there are no folders to backup
             $ignore_error = ($null -ne $IgnoreMissingBackupSources) -and $IgnoreMissingBackupSources
-            $warning_message = { Write-Output "[[Backup]] Warning - no folders to back up!" }
+            $warning_message = "[[Backup]] Warning - backup path $folder not found."
             if ($ignore_error) {
-                & $warning_message | Tee-Object -Append $SuccessLog
+                Write-Output $warning_message | Tee-Object -Append $BackupLog
             }
             else {
-                & $warning_message | Tee-Object -Append $SuccessLog | Tee-Object -Append $ErrorLog
-                $return_value = $false
-            }
-        }
-        else {
-            # Launch Restic
-            Write-Output "[[Backup]] Backing up $folder_list" | Tee-Object -Append $SuccessLog
-            & $ResticBin backup $folder_list --tag "$tag" --exclude-file=$LocalExcludeFile 3>&1 2>> $ErrorLog | Tee-Object -Append $SuccessLog
-            if (-not $?) {
-                Write-Output "[[Backup]] Completed with errors" | Tee-Object -Append $ErrorLog | Tee-Object -Append $SuccessLog
+                Write-Error $warning_message *>&1 | Tee-Object -Append $BackupLog
+                $ErrorCount++
                 $return_value = $false
             }
         }
 
-        Write-Output "[[Backup]] End $(Get-Date) [$tag]" | Tee-Object -Append $SuccessLog
+        Write-Output "[[Backup]] End $(Get-Date) [$folder]" | Tee-Object -Append $BackupLog
     }
     
-    Set-Location $starting_location
-    Write-Output "[[Backup]] End $(Get-Date)" | Tee-Object -Append $SuccessLog
+    Write-Output "[[Backup]] End $(Get-Date)" | Tee-Object -Append $BackupLog
 
     return $return_value
 }
@@ -200,9 +154,9 @@ function Invoke-Backup {
 # new location should have same chunker params as existing location
 # to ensure deduplication. See https://restic.readthedocs.io/en/stable/045_working_with_repos.html#copying-snapshots-between-repositories
 function Invoke-Copy {
-    Param($SuccessLog, $ErrorLog)
+    Param($BackupLog)
 
-    Write-Output "[[Copy]] Start $(Get-Date)" | Tee-Object -Append $SuccessLog
+    Write-Output "[[Copy]] Start $(Get-Date)" | Tee-Object -Append $BackupLog
     $return_value = $true
 
     # swap passwords around
@@ -212,18 +166,21 @@ function Invoke-Copy {
         # test to make sure local repo exists before copying from it
         & $ResticBin snapshots -r $Env:RESTIC_REPOSITORY2
         if (-not $?) {
-            Write-Output "[[Copy]] Could not find a local repository to copy from" | Tee-Object -Append $ErrorLog | Tee-Object -Append $SuccessLog
+            Write-Error "[ERROR] [[Copy]] Could not find a local repository to copy from" *>&1 `
+            | Tee-Object -Append $BackupLog
+            $ErrorCount++
             $return_value = $false
         }
         else {
             # copy from local repo (repo2) to remote repo
             & $ResticBin -r $Env:RESTIC_REPOSITORY2 copy --repo2 $env:RESTIC_REPOSITORY
+            $return_value = $?
         }
     }
     finally {
         # cleanup and swap passwords back
         $env:RESTIC_PASSWORD, $env:RESTIC_PASSWORD2 = $env:RESTIC_PASSWORD2, $env:RESTIC_PASSWORD
-        Write-Output "[[Copy]] End $(Get-Date)" | Tee-Object -Append $SuccessLog
+        Write-Output "[[Copy]] End $(Get-Date)" | Tee-Object -Append $BackupLog
     }
 
     return $return_value
@@ -271,7 +228,8 @@ function Invoke-ConnectivityCheck {
     }
 
     if ([string]::IsNullOrEmpty($repository_host)) {
-        Write-Error "[[Internet]] Repository string could not be parsed." | Tee-Object -Append $BackupLog
+        Write-Error "[ERROR] [[Internet]] Repository string could not be parsed." *>&1 | Tee-Object -Append $BackupLog
+        $ErrorCount++
         return $false
     }
 
@@ -281,15 +239,19 @@ function Invoke-ConnectivityCheck {
     while ($true) {
         $connections = Get-NetRoute | Where-Object DestinationPrefix -eq '0.0.0.0/0' | Get-NetIPInterface | Where-Object ConnectionState -eq 'Connected' | Measure-Object | ForEach-Object { $_.Count }
         if ($sleep_count -le 0) {
-            Write-Error "[[Internet]] Connection to repository ($repository_host) could not be established." | Tee-Object -Append $BackupLog
+            Write-Error "[ERROR] [[Internet]] Connection to repository ($repository_host) could not be established." *>&1 `
+            | Tee-Object -Append $BackupLog
+            $ErrorCount++
             return $false
         }
         if (($null -eq $connections) -or ($connections -eq 0)) {
-            Write-Output "[[Internet]] Waiting for internet connectivity... $sleep_count" | Tee-Object -Append $BackupLog
+            Write-Output "[[Internet]] Waiting for internet connectivity... $sleep_count" `
+            | Tee-Object -Append $BackupLog
             Start-Sleep 30
         }
         elseif (!(Test-Connection -ComputerName $repository_host -Quiet)) {
-            Write-Output "[[Internet]] Waiting for connection to repository ($repository_host)... $sleep_count" | Tee-Object -Append $BackupLog
+            Write-Output "[[Internet]] Waiting for connection to repository ($repository_host)... $sleep_count" `
+            | Tee-Object -Append $BackupLog
             Start-Sleep 30
         }
         else {
@@ -302,9 +264,9 @@ function Invoke-ConnectivityCheck {
 function Send-Healthcheck {
     Param($BackupLog)
 
-    $status = "SUCCESS"
-    $success_after_failure = $false
-    # $body = ""
+    # $status = "SUCCESS"
+    # $success_after_failure = $false
+    $body = ""
     # if (($null -ne $SuccessLog) -and (Test-Path $SuccessLog) -and (Get-Item $SuccessLog).Length -gt 0) {
     #     $body = $(Get-Content -Raw $SuccessLog)
     #     # if previous run contained an error, send the success email confirming that the error has been resolved
@@ -316,33 +278,26 @@ function Send-Healthcheck {
     # }
 
     # else {
-        # $body = "Critical Error! Restic backup log is empty or missing. Check log file path."
-        # $status = "ERROR"
+    # $body = "Critical Error! Restic backup log is empty or missing. Check log file path."
+    # $status = "ERROR"
     # }
     # $attachments = @{}
 
     if (($null -eq $BackupLog) -or (-not (Test-Path $BackupLog)) -or (Get-Item $BackupLog).Length -eq 0) {
         # Restic backup log is missing or empty
-        $status = "ERROR"
+        # $status = "ERROR"
+        Write-Error "[ERROR] Restic backup log is missing or empty" *>&1 | Tee-Object -Append $BackupLog
+        $ErrorCount++
     }
-    if ($Error.Count -ne 0) {
-        # $attachments = @{Attachments = $ErrorLog}
-        $status = "ERROR"
+    else {
+        $body = $(Get-Content -Raw $BackupLog)
     }
-    if ((($status -eq "SUCCESS") -and ($UseHealthcheck -ne $false)) -or ((($status -eq "ERROR") -or $success_after_failure) -and ($UseHealthcheck -ne $false))) {
-        # $subject = "$env:COMPUTERNAME Restic Backup Report [$status]"
 
-        # create a temporary error log to log errors; can't write to the same file that Send-MailMessage is reading
-        # $temp_error_log = $ErrorLog + "_temp"
+    Invoke-RestMethod -Method Post -Uri "$hc_url/$ErrorCount" -Body $body | Out-File -Append $BackupLog
 
-        # Send-MailMessage @ResticEmailConfig -From $ResticEmailFrom -To $ResticEmailTo -Credential $credentials -Subject $subject -Body $body @attachments 3>&1 2>> $temp_error_log
-        # Send success ping to healthchecks (NOTE: unique URL for each backed-up device)
-        # $error_flag = $(If ($status -eq "ERROR") { "fail" } Else { "0" })
-        Invoke-RestMethod -Method Post -Uri "$hc_url/$ErrorCount.Value" -Body $body | Out-Null
-
-        if (-not $?) {
-            Write-Error "[[Email]] Sending email completed with errors" | Tee-Object -Append $BackupLog
-        }
+    if (-not $?) {
+        Write-Error "[ERROR] [[Email]] Sending Healthcheck ping completed with errors" *>&1 | Tee-Object -Append $BackupLog
+        $ErrorCount++
     }
 }
 
@@ -359,57 +314,62 @@ function Invoke-Main {
     Get-BackupState
 
     if (!(Test-Path $LogPath)) {
-        Write-Error "[[Backup]] Log file directory $LogPath does not exist. Exiting."
+        Write-Error "[ERROR] [[Backup]] Log file directory $LogPath does not exist. Exiting."
+        $ErrorCount++
         exit
     }
 
-    $Error.Clear()
-    [int]$attempt_count = $GlobalRetryAttempts
+    $attempt_count = $GlobalRetryAttempts
 
     while ($attempt_count -gt 0) {
         # setup logfiles
-        $timestamp = Get-Date -Format FileDateTime
-        $backup_log = Join-Path $LogPath ($timestamp + ".log.txt")
-        # $error_log = Join-Path $LogPath ($timestamp + ".err.txt")
+        $backup_log = Join-Path $LogPath ("backup.log")
+        if (Test-Path $backup_log) {
+            Write-Output "Removing old log file: $backup_log"
+            Remove-Item $backup_log
+        }
         
         $internet_available = Invoke-ConnectivityCheck $backup_log
         if ($internet_available -eq $true) { 
-            Invoke-Unlock $backup_log $error_log
-            $backup_success = Invoke-Backup $backup_log $error_log
-            $copy_success = $true
+            Invoke-Unlock $backup_log
+            $backup_output = Invoke-Backup $backup_log
+            $copy_output = @($true)
+            Write-Output $backup_output # write output to console
             if ($CopyLocalRepo) {
-                $copy_success = Invoke-Copy $backup_log $error_log
+                $copy_output = Invoke-Copy $backup_log
+                Write-Output $copy_output # write output to console
             }
-            if ($backup_success && $copy_success) {
-                Invoke-Maintenance $backup_log $error_log
+            if ($backup_output[-1] && $copy_output[-1]) {
+                # last value returned by each function is success (true) or failure (false)
+                Invoke-Maintenance $backup_log
             }
 
-            if (!(Test-Path $error_log) -or ((Get-Item $error_log).Length -eq 0)) {
+            if ($ErrorCount -eq 0) {
                 # successful with no errors; end
                 $total_attempts = $GlobalRetryAttempts - $attempt_count + 1
                 Write-Output "Succeeded after $total_attempts attempt(s)" | Tee-Object -Append $backup_log
-                Invoke-HistoryCheck $backup_log $error_log
+                $ResticStateSuccessfulBackups++
+                # Invoke-HistoryCheck $backup_log
                 if ($UseHealthcheck) {
-                    Send-Healthcheck $backup_log $error_log
+                    Send-Healthcheck $backup_log
                 }
                 break;
             }
         }
-
-        Write-Output "[[General]] Errors found. Log: $error_log" | Tee-Object -Append $backup_log
-        $error_count++
         
         $attempt_count--
         if ($attempt_count -gt 0) {
             Write-Output "[[Retry]] Sleeping for 15 min and then retrying..." | Tee-Object -Append $backup_log
         }
         else {
-            Write-Output "[[Retry]] Retry limit has been reached. No more attempts to backup will be made." | Tee-Object -Append $backup_log
+            Write-Error "[ERROR] [[Retry]] Retry limit has been reached. No more attempts to backup will be made." *>&1 `
+            | Tee-Object -Append $backup_log
+            $ErrorCount++
         }
         if ($internet_available -eq $true) {
-            Invoke-HistoryCheck $backup_log $error_log
+            # Invoke-HistoryCheck $backup_log
             if ($UseHealthcheck) {
-                Send-Healthcheck $backup_log ([ref]$error_log)
+                Send-Healthcheck $backup_log
             }
         }
         if ($attempt_count -gt 0) {
@@ -420,9 +380,9 @@ function Invoke-Main {
     Set-BackupState
 
     # cleanup older log files
-    Get-ChildItem $LogPath | Where-Object { $_.CreationTime -lt $(Get-Date).AddDays(-$LogRetentionDays) } | Remove-Item
+    # Get-ChildItem $LogPath | Where-Object { $_.CreationTime -lt $(Get-Date).AddDays(-$LogRetentionDays) } | Remove-Item
 
-    return $error_count
+    return $ErrorCount
 }
 
 Invoke-Main

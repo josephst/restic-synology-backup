@@ -15,14 +15,30 @@ function Test-Backup {
     . $ConfigScript
 
     # Create new repo for testing
-    & $ResticBin snapshots | Out-Null
-    $status = $?
-    if (-not $status) {
+    & $ResticBin snapshots *>&1 y| Out-Null
+    $exists = $?
+    if (!$exists) {
         New-Repo
     }
 
     # Run backup
     . .\backup.ps1
+}
+
+function New-Repo {
+    Write-Output "[[Init]] Creating new restic repository with restic init"
+    if ($null -eq $env:RESTIC_REPOSITORY2) {
+        & $ResticBin init
+    } else {
+        # if there's a second repo we'll be copying from,
+        # use its chunker params for data dedup
+        & $ResticBin init --copy-chunker-params
+    }
+    
+    if (-not $?) {
+        Write-Error "[ERROR] [[Init]] Failed to init the repository: $($Env:RESTIC_REPOSITORY)"
+        exit 1
+    }
 }
 
 function New-LocalRepo {
@@ -48,8 +64,14 @@ function New-LocalRepo {
 
     try {
         # make a new repository (repo2, with data from setB)
-        & $ResticBin init
-        & $ResticBin backup -H setB "/dataB"
+        $exists = restic snapshots | Out-Null
+        if ($exists) {
+            Write-Output "Local/ secondary repo already exists at $repo2.Repo. Skipping repo creation"
+            return
+        } else {
+            & $ResticBin init
+            & $ResticBin backup -H setB "/dataB"
+        }
     }
     finally {
         $env:RESTIC_REPOSITORY = $repo1.Repo
@@ -69,7 +91,7 @@ function Test-Restore {
     if ($out -eq $(Get-Content "/dataB/example.txt")) {
         Write-Output "Copy and restore successful"
     } else {
-        Write-Error "Unsuccessful copy and restore"
+        Write-Error "[ERROR] Unsuccessful copy and restore"
     }
 
     # restore a file that was backed up
@@ -78,7 +100,7 @@ function Test-Restore {
     if ($out -eq $(Get-Content "/data/foo.txt")) {
         Write-Output "Backup and restore successful"
     } else {
-        Write-Error "Unsuccessful backup and restore"
+        Write-Error "[ERROR] Unsuccessful backup and restore"
     }
 
     # test file restore
@@ -86,7 +108,7 @@ function Test-Restore {
     if ($(Get-FileHash "/tmp/restore/data/foo.txt").Hash -eq (Get-FileHash "/data/foo.txt").Hash) {
         Write-Output "File restore: hashes match"
     } else {
-        Write-Error "File restore: hashes do NOT match"
+        Write-Error "[ERROR] File restore: hashes do NOT match"
     }
 }
 
@@ -101,7 +123,7 @@ function Remove-Backup {
         if ($response -eq 'y') {
             Remove-Item -Recurse -Force "$repo/*"
         } else {
-            Write-Error "Not removing data, exiting."
+            Write-Error "[ERROR] Not removing data, exiting."
             exit 1
         }
     }

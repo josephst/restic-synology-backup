@@ -1,4 +1,4 @@
-$ScriptDir = $PSScriptRoot
+$ScriptDir = $PSScriptRoot # /etc/backup
 $StateFile = Join-Path $ScriptDir "state.xml"
 $LocalExcludeFile = Join-Path $ScriptDir "local.exclude"
 $LogPath = "/var/log/restic"
@@ -25,5 +25,5 @@ $UseHealthcheck = $Env:USE_HEALTHCHECK -eq "Y" ? $true : $false
 $CopyLocalRepo = $Env:COPY_LOCAL_REPO -eq "Y" ? $true : $false
 
 # Paths to backup
-$BackupSources = @{}
-$BackupSources["/data"] = @()
+$BackupSources = @("/data")
+# $BackupSources["/data"] = @()

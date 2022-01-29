@@ -23,16 +23,16 @@ that is both on local PCs backed up to the NAS and additionally on the NAS
 
 ## TODO
 - [x] ⌚ Cron: add support for cron to keep the container running and perform backups every day (or every 1m, for testing)
-- [ ] 📰 Better logging: log output from each script run (or cron job trigger) to its own file
+- [x] 📰 Better logging: log output from each script run (or cron job trigger) to its own file
 and clean up the previous file at the start of each run
 - [ ] 🚧 Configuration should be more based on environment variables (which can be changed more easily)
 and less on `config.ps1` (which is hard to modify once docker container is created).
 Alternatively, put config files into a volume which is mounted (would make modifying `local.exclude` easier)
-- [ ] 💾 Store `state.xml` file in a docker volume to persist information (such as last maintenance date)
-between container creations/ deletions. Also, consider adding logs to this volume?
+- [x] 💾 Store `state.xml` file in a docker volume to persist information (such as last maintenance date)
+between container creations/ deletions.
 - [ ] 🧹 `restic forget` should also clean up the local Restic repo (the repo that local PCs back up to).
 Current behavior is to work only on the remote repo
-- [ ] 🖨 Dockerfile should add a cron job for backups and then `tail -f` log file output
+- [x] 🖨 Dockerfile should add a cron job for backups and then `tail -f` log file output
 
 
 # Development
