@@ -1,21 +1,16 @@
 # =========== start configuration =========== # 
 
 # set restic configuration parmeters (destination, passwords, etc.)
-$SecretsScript = Join-Path $PSScriptRoot "secrets.ps1"
+$SecretsScript = Join-Path "/etc/backup" "secrets.ps1"
 
 # backup configuration variables
-$ConfigScript = Join-Path $PSScriptRoot "config.ps1"
+$ConfigScript = Join-Path "/etc/backup" "config.ps1"
+
 
 # =========== end configuration =========== #
 function Test-Backup {
-    param (
-    )
-
-    . $SecretsScript
-    . $ConfigScript
-
     # Create new repo for testing
-    & $ResticBin snapshots *>&1 y| Out-Null
+    & $ResticBin snapshots *>&1 | Out-Null
     $exists = $?
     if (!$exists) {
         New-Repo
@@ -42,11 +37,6 @@ function New-Repo {
 }
 
 function New-LocalRepo {
-    # create a local repo (Repo2) to test copying
-    . ./backup.ps1
-    . $SecretsScript
-    . $ConfigScript
-
     $repo1 = @{
         Repo     = $env:RESTIC_REPOSITORY;
         Password = $env:RESTIC_PASSWORD;
@@ -82,9 +72,6 @@ function New-LocalRepo {
 }
 
 function Test-Restore {
-    . $SecretsScript
-    . $ConfigScript
-
     # restore a file that was copied
     # mimics a restore from the `restic copy` command
     $out = & $ResticBin dump -H setB latest "/dataB/example.txt"
@@ -113,9 +100,6 @@ function Test-Restore {
 }
 
 function Remove-Backup {
-    . $SecretsScript
-    . $ConfigScript
-
     $repos = @("$env:RESTIC_REPOSITORY")
     foreach ($repo in $repos) {
         $msg = "Do you want to remove all data in $repo [y/n]?"
@@ -129,6 +113,12 @@ function Remove-Backup {
     }
     Remove-Item -Recurse -Force logs/*
 }
+
+# run tests
+. $SecretsScript
+. $ConfigScript
+
+$LogPath = Join-Path $PSScriptRoot "logs/backup-test.log" # for testing, put log file in this folder
 
 Remove-Backup
 # New-LocalRepo

@@ -9,6 +9,7 @@
             "type": "PowerShell",
             "request": "launch",
             "script": "${workspaceFolder}/backup_test.ps1",
+            "args": ["-Verbose"],
             "cwd": "${workspaceFolder}"
         },
         {

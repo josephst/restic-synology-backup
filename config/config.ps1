@@ -1,7 +1,7 @@
 $ScriptDir = $PSScriptRoot # /etc/backup
 $StateFile = Join-Path $ScriptDir "state.xml"
 $LocalExcludeFile = Join-Path $ScriptDir "local.exclude"
-$LogPath = "/var/log/restic"
+$LogPath = $LogPath ?? "/var/log/restic/backup.log"
 $LogRetentionDays = 30
 $InternetTestAttempts = 10
 $GlobalRetryAttempts = 4
