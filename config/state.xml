@@ -48,7 +48,7 @@
       <S N="Name">ResticStateLastMaintenance</S>
       <S N="Description"></S>
       <Obj N="Value" RefId="5">
-        <DT>2022-01-29T02:49:13.8632915+00:00</DT>
+        <DT>2022-01-30T00:57:13.7643839+00:00</DT>
         <MS>
           <Obj N="DisplayHint" RefId="6">
             <TN RefId="4">
@@ -86,7 +86,7 @@
     <Props>
       <S N="Name">ResticStateMaintenanceCounter</S>
       <S N="Description"></S>
-      <I32 N="Value">2</I32>
+      <I32 N="Value">6</I32>
       <Obj N="Visibility" RefId="11">
         <TNRef RefId="1" />
         <ToString>Public</ToString>
@@ -136,7 +136,7 @@
     <Props>
       <S N="Name">ResticStateSuccessfulBackups</S>
       <S N="Description"></S>
-      <I32 N="Value">3</I32>
+      <I32 N="Value">21</I32>
       <Obj N="Visibility" RefId="19">
         <TNRef RefId="1" />
         <ToString>Public</ToString>

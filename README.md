@@ -25,6 +25,9 @@ that is both on local PCs backed up to the NAS and additionally on the NAS
 - [x] ⌚ Cron: add support for cron to keep the container running and perform backups every day (or every 1m, for testing)
 - [x] 📰 Better logging: log output from each script run (or cron job trigger) to its own file
 and clean up the previous file at the start of each run
+- [ ] 🖨 Use `--json` flag and convert to Powershell objects for better reporting from commands
+- [ ] 💾 Store details about previous backups (success/ failure, date, amount backed up) as `[pscustomobject]` list
+which can be exported/ read from a CSV file
 - [ ] 🚧 Configuration should be more based on environment variables (which can be changed more easily)
 and less on `config.ps1` (which is hard to modify once docker container is created).
 Alternatively, put config files into a volume which is mounted (would make modifying `local.exclude` easier)
