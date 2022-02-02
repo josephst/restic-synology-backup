@@ -20,6 +20,7 @@ $SnapshotDeepMaintenanceDays = 90;
 
 # Healthchecks.io configuration
 $UseHealthcheck = $Env:USE_HEALTHCHECK -eq "Y" ? $true : $false
+$hc_url ??= $env:HC_PING
 
 # Copy an existing repo to the destination repo
 $CopyLocalRepo = $Env:COPY_LOCAL_REPO -eq "Y" ? $true : $false

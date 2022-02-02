@@ -4,7 +4,6 @@
 
 # set restic configuration parmeters (destination, passwords, etc.)
 # TODO: put these in a configuration directory
-$SecretsScript = Join-Path "/etc/backup" "secrets.ps1"
 
 # backup configuration variables
 $ConfigScript = Join-Path "/etc/backup" "config.ps1"
@@ -12,7 +11,6 @@ $ConfigScript = Join-Path "/etc/backup" "config.ps1"
 # =========== end configuration =========== #
 
 # Load configuration
-. $SecretsScript
 . $ConfigScript
 
 
@@ -55,6 +53,44 @@ function Write-Log {
             # Write-Verbose -Verbose so we can actually see what's being printed
             "[$timeStamp] $message" | Tee-Object -FilePath $backup_log -Append | Write-Verbose -Verbose
         }
+    }
+}
+
+function Write-BackupJson {
+    [CmdletBinding()]
+    param (
+        [switch]
+        $Success
+    )
+    {
+        $backup_results_path = Join-Path "/etc/backup" "results.json"
+        $previous_backups = @()
+        if (Test-Path $backup_results_path) {
+            $previous_backups = Get-Content $backup_results_path | Out-String | ConvertFrom-Json
+        }
+        # add new data to array
+        $recent_backup_data = [pscustomobject]@{
+            Date = $(Get-Date)
+            Success = $Success
+        }
+
+        # limit to 30 previous backups for log
+        $previous_backups = @($previous_backups) + @($recent_backup_data)
+        $previous_backups = $previous_backups[-30..-1]
+
+        # save
+        $previous_backups | ConvertTo-Json -AsArray | Out-File $backup_results_path
+
+        $SuccessCount = $($previous_backups | Where-Object { $_.Success -eq $true }).Length
+        $TotalCount = $previous_backups.Length
+
+        # return success stats
+        $stats = [PSCustomObject]@{
+            Success = $SuccessCount
+            Total = $TotalCount
+        }
+
+        return $stats
     }
 }
 
@@ -363,6 +399,9 @@ function Invoke-Main {
                 $total_attempts = $GlobalRetryAttempts - $attempt_count + 1
                 Write-Log "Succeeded after $total_attempts attempt(s)"
                 $ResticStateSuccessfulBackups++
+
+                $stats = Write-BackupJson -Success
+                Write-Log "Total of $stats.Total backups ($stats.Success successful backups)"
                 # Invoke-HistoryCheck $backup_log
                 if ($UseHealthcheck) {
                     Send-Healthcheck

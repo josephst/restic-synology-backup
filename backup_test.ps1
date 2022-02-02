@@ -1,7 +1,5 @@
 # =========== start configuration =========== # 
 
-# set restic configuration parmeters (destination, passwords, etc.)
-$SecretsScript = Join-Path "/etc/backup" "secrets.ps1"
 
 # backup configuration variables
 $ConfigScript = Join-Path "/etc/backup" "config.ps1"
@@ -115,7 +113,6 @@ function Remove-Backup {
 }
 
 # run tests
-. $SecretsScript
 . $ConfigScript
 
 $LogPath = Join-Path $PSScriptRoot "logs/backup-test.log" # for testing, put log file in this folder
