@@ -429,7 +429,7 @@ function Invoke-Main {
                 $ResticStateSuccessfulBackups++
 
                 $stats = Write-BackupJson
-                Write-Log "Total of $($stats.Total) backups ($($stats.Success) successful backups)"
+                Write-Log "Total of $($stats.Total) backups ($($stats.Success) successful backups) in past $LogRetentionDays days"
                 # Invoke-HistoryCheck $LogPath
                 if ($UseHealthcheck) {
                     Send-Healthcheck
