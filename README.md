@@ -28,7 +28,7 @@ and clean up the previous file at the start of each run
 - [x] 🖨 Use `--json` flag and convert to Powershell objects for better reporting from commands
 - [X] 💾 Store details about previous backups (success/ failure, date, amount backed up) as `[pscustomobject]` list
 which can be exported/ read from a CSV file
-- [ ] 🚧 Configuration should be more based on environment variables (which can be changed more easily)
+- [x] 🚧 Configuration should be more based on environment variables (which can be changed more easily)
 and less on `config.ps1` (which is hard to modify once docker container is created).
 Alternatively, put config files into a volume which is mounted (would make modifying `local.exclude` easier)
 - [x] 💾 Store `state.xml` file in a docker volume to persist information (such as last maintenance date)
