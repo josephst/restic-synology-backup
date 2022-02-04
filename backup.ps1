@@ -47,7 +47,6 @@ function Write-Log {
             "[$timeStamp] [ERROR] $message" | Tee-Object -FilePath $LogPath -Append | Write-Error
         }
         else {
-            # Write-Verbose -Verbose so we can actually see what's being printed
             "[$timeStamp] $message" | Tee-Object -FilePath $LogPath -Append | Write-Verbose -Verbose
         }
     }
