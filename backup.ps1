@@ -60,37 +60,59 @@ function Write-BackupJson {
     [CmdletBinding()]
     param (
         [switch]
-        $Success
+        $Failure
     )
-    {
+    process {
         $backup_results_path = Join-Path "/etc/backup" "results.json"
         $previous_backups = @()
         if (Test-Path $backup_results_path) {
             $previous_backups = Get-Content $backup_results_path | Out-String | ConvertFrom-Json
         }
+
         # add new data to array
         $recent_backup_data = [pscustomobject]@{
-            Date = $(Get-Date)
-            Success = $Success
+            Date    = $(Get-Date)
+            Success = !$Failure
         }
 
-        # limit to 30 previous backups for log
+        # limit to 30 days ($LogRetentionDays) of backup history
         $previous_backups = @($previous_backups) + @($recent_backup_data)
-        $previous_backups = $previous_backups[-30..-1]
+        $previous_backups = $previous_backups.Where({$_.Date -gt $(Get-Date).AddDays(-$LogRetentionDays)})
 
         # save
         $previous_backups | ConvertTo-Json -AsArray | Out-File $backup_results_path
 
-        $SuccessCount = $($previous_backups | Where-Object { $_.Success -eq $true }).Length
-        $TotalCount = $previous_backups.Length
+        $SuccessCount = $($previous_backups.Where{$_.Success -eq $true }).Count
+        $TotalCount = $previous_backups.Count
 
         # return success stats
         $stats = [PSCustomObject]@{
             Success = $SuccessCount
-            Total = $TotalCount
+            Total   = $TotalCount
         }
 
         return $stats
+    }
+}
+
+function Convert-FriendlyBytes {
+    # https://stackoverflow.com/a/24617034 by mjolinor & Peter Mortensen
+    param(
+        [Parameter(Mandatory)][int] $ByteCount
+    )
+    switch -Regex ([math]::truncate([math]::log($ByteCount, 1024))) {
+
+        '^0' { "$ByteCount Bytes" }
+    
+        '^1' { "{0:n2} KB" -f ($ByteCount / 1KB) }
+    
+        '^2' { "{0:n2} MB" -f ($ByteCount / 1MB) }
+    
+        '^3' { "{0:n2} GB" -f ($ByteCount / 1GB) }
+    
+        '^4' { "{0:n2} TB" -f ($ByteCount / 1TB) }
+    
+        Default { "{0:n2} PB" -f ($ByteCount / 1pb) }
     }
 }
 
@@ -192,11 +214,21 @@ function Invoke-Backup {
         if (Test-Path $folder) {
             # Launch Restic
             Write-Log "[[Backup]] Backing up $folder"
-            & $ResticBin backup $folder --tag "$folder" --exclude-file=$LocalExcludeFile --one-file-system *>&1 | Write-Log
-            if (-not $?) {
+            $backupJson = & $ResticBin backup $folder --json --tag "$folder" --exclude-file=$LocalExcludeFile --one-file-system | ConvertFrom-Json
+            $backupSuccess = $?
+            if (-not $backupSuccess) {
+                $errorMessage = $backupJson.Where{ $_.message_type -match "error" } | Format-List | Out-String
+                Write-Log "[[Backup]] $errorMessage" -IsErrorMessage
                 Write-Log "[[Backup]] Completed with errors" -IsErrorMessage
                 $ErrorCount++
                 $return_value = $false
+            }
+            else {
+                $backupSummary = $backupJson[-1] # last message is summary message
+                $summaryText = "[[Backup]] Backed up $($backupSummary.files_new) new files " +
+                "($(Convert-FriendlyBytes $backupSummary.data_added)) in $($backupSummary.total_duration) " +
+                "seconds."
+                Write-Log $summaryText
             }
         }
         else {
@@ -230,9 +262,10 @@ function Invoke-Copy {
     }
     else {
         Write-Log "[[Copy]] Start $(Get-Date)"
+        Write-Log "[[Copy]] Copying from $Env:RESTIC_REPOSITORY2 to $Env:RESTIC_REPOSITORY"
         $return_value = $true
     
-        # swap passwords around
+        # swap passwords around, 
         $env:RESTIC_PASSWORD, $env:RESTIC_PASSWORD2 = $env:RESTIC_PASSWORD2, $env:RESTIC_PASSWORD
     
         try {
@@ -245,7 +278,9 @@ function Invoke-Copy {
             }
             else {
                 # copy from local repo (repo2) to remote repo
-                & $ResticBin -r $Env:RESTIC_REPOSITORY2 copy --repo2 $env:RESTIC_REPOSITORY *>&1 | Write-Log
+                # since passwords are swapped, primary password is now for repo2 (the local repo)
+                # and secondary password is for repo1  (the repo being copied to)
+                & $ResticBin -r $Env:RESTIC_REPOSITORY2 copy --repo2 $env:RESTIC_REPOSITORY | Write-Log
                 if (-not $?) {
                     $return_value = $false
                     Write-Log "[[Copy]] Copying completed with errors" -IsErrorMessage
@@ -328,25 +363,7 @@ function Invoke-ConnectivityCheck {
 }
 
 function Send-Healthcheck {
-
-    # $status = "SUCCESS"
-    # $success_after_failure = $false
     $body = ""
-    # if (($null -ne $SuccessLog) -and (Test-Path $SuccessLog) -and (Get-Item $SuccessLog).Length -gt 0) {
-    #     $body = $(Get-Content -Raw $SuccessLog)
-    #     # if previous run contained an error, send the success email confirming that the error has been resolved
-    #     # (i.e. get previous error log, if it's not empty, trigger the send of the success-after-failure email)
-    #     $previous_error_log = Get-ChildItem $LogPath -Filter '*err.txt' | Sort-Object -Descending LastWriteTime | Select-Object -Skip 1 | Select-Object -First 1
-    #     if (($null -ne $previous_error_log) -and ($previous_error_log.Length -gt 0)) {
-    #         $success_after_failure = $true
-    #     }
-    # }
-
-    # else {
-    # $body = "Critical Error! Restic backup log is empty or missing. Check log file path."
-    # $status = "ERROR"
-    # }
-    # $attachments = @{}
 
     if (($null -eq $backup_log) -or (-not (Test-Path $backup_log)) -or (Get-Item $backup_log).Length -eq 0) {
         # Restic backup log is missing or empty
@@ -368,7 +385,6 @@ function Send-Healthcheck {
 }
 
 function Invoke-Main {
-
     # Start Backup Timer
     if ($UseHealthcheck) {
         Invoke-RestMethod "$hc_url/start" | Out-Null
@@ -400,8 +416,8 @@ function Invoke-Main {
                 Write-Log "Succeeded after $total_attempts attempt(s)"
                 $ResticStateSuccessfulBackups++
 
-                $stats = Write-BackupJson -Success
-                Write-Log "Total of $stats.Total backups ($stats.Success successful backups)"
+                $stats = Write-BackupJson
+                Write-Log "Total of $($stats.Total) backups ($($stats.Success) successful backups)"
                 # Invoke-HistoryCheck $backup_log
                 if ($UseHealthcheck) {
                     Send-Healthcheck
@@ -416,7 +432,9 @@ function Invoke-Main {
         }
         else {
             Write-Log "[[Retry]] Retry limit has been reached. No more attempts to backup will be made." -IsErrorMessage
+            $stats = Write-BackupJson -Failure
             $ErrorCount++
+            Write-Log "Total of $($stats.Total) backups ($($stats.Success) successful backups)"
         }
         if ($internet_available -eq $true) {
             # Invoke-HistoryCheck $backup_log

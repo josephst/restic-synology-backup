@@ -14,9 +14,8 @@ $ResticBin = "/usr/bin/restic"
 $SnapshotMaintenanceEnabled = $true
 $SnapshotRetentionPolicy = @("--group-by", "host,tags", "--keep-daily", "30", "--keep-weekly", "52", "--keep-monthly", "24", "--keep-yearly", "10")
 $SnapshotPrunePolicy = @("--max-unused", "1%")
-$SnapshotMaintenanceInterval = 7
-$SnapshotMaintenanceDays = 30
-$SnapshotDeepMaintenanceDays = 90;
+$SnapshotMaintenanceInterval = $Env:RESTIC_MAINT_INTERVAL ?? 7
+$SnapshotMaintenanceDays = $Env:RESTIC_MAINT_DAYS ?? 30
 
 # Healthchecks.io configuration
 $UseHealthcheck = $Env:USE_HEALTHCHECK -eq "Y" ? $true : $false
