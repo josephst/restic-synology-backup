@@ -223,7 +223,7 @@ function Invoke-Backup {
         if (Test-Path $folder) {
             # Launch Restic
             Write-Log "[[Backup]] Backing up $folder"
-            $backupJson = & $ResticBin backup $folder --json --tag "$folder" --exclude-file=$LocalExcludeFile --one-file-system | ConvertFrom-Json
+            $backupJson = & $ResticBin backup $folder --json --tag "$folder" --exclude-file=$LocalExcludeFile | ConvertFrom-Json
             $backupSuccess = $?
             if (-not $backupSuccess) {
                 $errorMessage = $backupJson.Where{ $_.message_type -match "error" } | Format-List | Out-String
