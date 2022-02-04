@@ -16,13 +16,16 @@ $SnapshotRetentionPolicy = @("--group-by", "host,tags", "--keep-daily", "30", "-
 $SnapshotPrunePolicy = @("--max-unused", "1%")
 $SnapshotMaintenanceInterval = $Env:RESTIC_MAINT_INTERVAL ?? 7
 $SnapshotMaintenanceDays = $Env:RESTIC_MAINT_DAYS ?? 30
+$SnapshotDeepMaintenance = $Env:RESTIC_DEEP_MAINT -eq "Y"
+$SnapshotDeepMaintenanceDays = $Env:RESTIC_DEEP_MAINT_DAYS ?? 90
+$SnapshotDeepMaintenanceSize = $Env:RESTIC_DEEP_MAINT_SIZE ?? "100%"
 
 # Healthchecks.io configuration
-$UseHealthcheck = $Env:USE_HEALTHCHECK -eq "Y" ? $true : $false
+$UseHealthcheck = $Env:USE_HEALTHCHECK -eq "Y"
 $hc_url ??= $env:HC_PING
 
 # Copy an existing repo to the destination repo
-$CopyLocalRepo = $Env:COPY_LOCAL_REPO -eq "Y" ? $true : $false
+$CopyLocalRepo = $Env:COPY_LOCAL_REPO -eq "Y"
 
 # Paths to backup
 $BackupSources = @("/data")

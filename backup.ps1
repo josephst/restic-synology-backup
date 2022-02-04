@@ -77,12 +77,12 @@ function Write-BackupJson {
 
         # limit to 30 days ($LogRetentionDays) of backup history
         $previous_backups = @($previous_backups) + @($recent_backup_data)
-        $previous_backups = $previous_backups.Where({$_.Date -gt $(Get-Date).AddDays(-$LogRetentionDays)})
+        $previous_backups = $previous_backups.Where({ $_.Date -gt $(Get-Date).AddDays(-$LogRetentionDays) })
 
         # save
         $previous_backups | ConvertTo-Json -AsArray | Out-File $backup_results_path
 
-        $SuccessCount = $($previous_backups.Where{$_.Success -eq $true }).Count
+        $SuccessCount = $($previous_backups.Where{ $_.Success -eq $true }).Count
         $TotalCount = $previous_backups.Count
 
         # return success stats
@@ -173,21 +173,34 @@ function Invoke-Maintenance {
     #   `forget` only prunes when it detects removed snapshots upon invocation, not previously removed
     Write-Log "[[Maintenance]] Start pruning..."
     & $ResticBin prune $SnapshotPrunePolicy *>&1 | Write-Log
-    $pruneSuccess = $?
-    if (-not $pruneSuccess) {
+    if (-not $?) {
         Write-Log "[[Maintenance]] Prune operation completed with errors" -IsErrorMessage
         $ErrorCount++
         $maintenance_success = $false
     }
 
-    # perform quick data check (full data checks are done by datacheck.ps1)
-    Write-Log "[[Maintenance]] Performing fast data check - deep '--read-data' check last ran $ResticStateLastDeepMaintenance ($($delta.Days) days ago)"
-    # Write-Output "[[Maintenance]] Run `datacheck.ps1` for a full data check" | Tee-Object -Append $BackupLog
+    $data_check = @()
+    if ($null -ne $ResticStateLastDeepMaintenance) {
+        $delta = New-TimeSpan -Start $ResticStateLastMaintenance -End $(Get-Date)
+        if ($SnapshotDeepMaintenance && $delta.Days -ge $SnapshotDeepMaintenanceDays) {
+            # Deep maintenance (ie perform a data check)
+            Write-Log "[[Maintenance]] Performing deep data check - deep '--read-data' check last ran $ResticStateLastDeepMaintenance ($($delta.Days) days ago)"
+            Write-Log "[[Maintenance]] Will read $SnapshotDeepMaintenanceSize of data"
+            $data_check = @("--read-data-subset=$SnapshotDeepMaintenanceSize")
+            $Script:ResticStateLastDeepMaintenance = Get-Date
+        } else {
+            Write-Log "[[Maintenance]] Performing fast data check - deep '--read-data' check last ran $ResticStateLastDeepMaintenance ($($delta.Days) days ago)"
+        }
 
-    & $ResticBin check *>&1 | Write-Log
-    if (-not $?) {
-        Write-Log "[[Maintenance]] It looks like the data check failed! Possible data corruption?" -IsErrorMessage
-        $ErrorCount++
+        & $ResticBin check @data_check *>&1 | Write-Log
+        if (-not $?) {
+            Write-Log "[[Maintenance]] It looks like the data check failed! Possible data corruption?" -IsErrorMessage
+            $ErrorCount++
+        }
+    }
+    else {
+        # set the date, but don't do a check if we've never done a deep maintenance
+        $Script:ResticStateLastDeepMaintenance = Get-Date
     }
 
     Write-Log "[[Maintenance]] End $(Get-Date)"

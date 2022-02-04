@@ -26,7 +26,8 @@ ENV RESTIC_MAINT_DAYS=30
 # download and check 5gb of backed up data, every 90 days
 ENV RESTIC_DEEP_MAINT="Y"
 ENV RESTIC_DEEP_MAINT_DAYS=90
-ENV RESTIC_DEEP_MAINT_CHECK="5GB"
+# supports restic's --read-data-subset options; 100% to read whole repo
+ENV RESTIC_DEEP_MAINT_SIZE="10%"
 
 # Healthcheck
 ENV USE_HEALTHCHECK="N"
