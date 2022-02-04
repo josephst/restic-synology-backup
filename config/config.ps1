@@ -1,7 +1,7 @@
 $ScriptDir = $PSScriptRoot # /etc/backup
 $StateFile = Join-Path $ScriptDir "state.xml"
 $LocalExcludeFile = Join-Path $ScriptDir "local.exclude"
-$LogPath = $LogPath ?? "/var/log/restic/backup.log"
+$LogPath = $LogPath ?? "/var/log/restic.log"
 $LogRetentionDays = 30
 $InternetTestAttempts = 10
 $GlobalRetryAttempts = 4
@@ -22,7 +22,7 @@ $SnapshotDeepMaintenanceSize = $Env:RESTIC_DEEP_MAINT_SIZE ?? "100%"
 
 # Healthchecks.io configuration
 $UseHealthcheck = $Env:USE_HEALTHCHECK -eq "Y"
-$hc_url ??= $env:HC_PING
+$hc_url ??= $Env:HC_PING
 
 # Copy an existing repo to the destination repo
 $CopyLocalRepo = $Env:COPY_LOCAL_REPO -eq "Y"

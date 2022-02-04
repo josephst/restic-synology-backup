@@ -23,9 +23,6 @@ $Script:ResticStateMaintenanceCounter = $null
 # globals for error counting
 [int]$ErrorCount = 0
 
-# Misc other globals
-$backup_log = $LogPath
-
 function Write-Log {
     [cmdletbinding()]
     Param(
@@ -47,11 +44,11 @@ function Write-Log {
             $message = $LogMessage
         }
         if ($IsErrorMessage) {
-            "[$timeStamp] [ERROR] $message" | Tee-Object -FilePath $backup_log -Append | Write-Error
+            "[$timeStamp] [ERROR] $message" | Tee-Object -FilePath $LogPath -Append | Write-Error
         }
         else {
             # Write-Verbose -Verbose so we can actually see what's being printed
-            "[$timeStamp] $message" | Tee-Object -FilePath $backup_log -Append | Write-Verbose -Verbose
+            "[$timeStamp] $message" | Tee-Object -FilePath $LogPath -Append | Write-Verbose -Verbose
         }
     }
 }
@@ -378,7 +375,7 @@ function Invoke-ConnectivityCheck {
 function Send-Healthcheck {
     $body = ""
 
-    if (($null -eq $backup_log) -or (-not (Test-Path $backup_log)) -or (Get-Item $backup_log).Length -eq 0) {
+    if (($null -eq $LogPath) -or (-not (Test-Path $LogPath)) -or (Get-Item $LogPath).Length -eq 0) {
         # Restic backup log is missing or empty
         # $status = "ERROR"
         $body = "[[Healthcheck]] Restic backup log is missing or empty!"
@@ -386,7 +383,7 @@ function Send-Healthcheck {
         $ErrorCount++
     }
     else {
-        $body = $(Get-Content -Raw $backup_log)
+        $body = $(Get-Content -Raw $LogPath)
     }
 
     Invoke-RestMethod -Method Post -Uri "$hc_url/$ErrorCount" -Body $body | Out-Null
@@ -409,10 +406,12 @@ function Invoke-Main {
 
     while ($attempt_count -gt 0) {
         # setup logfiles
-        if (Test-Path $backup_log) {
-            Write-Log "Removing old log file: $backup_log"
-            Remove-Item $backup_log
+        if (Test-Path $LogPath) {
+            Write-Log "Removing old log file: $LogPath"
+            Remove-Item $LogPath
         }
+        Add-Content -Value "RESTIC SYNOLOGY BACKUP" -Path $LogPath
+        
         
         $internet_available = Invoke-ConnectivityCheck
         if ($internet_available -eq $true) { 
@@ -431,7 +430,7 @@ function Invoke-Main {
 
                 $stats = Write-BackupJson
                 Write-Log "Total of $($stats.Total) backups ($($stats.Success) successful backups)"
-                # Invoke-HistoryCheck $backup_log
+                # Invoke-HistoryCheck $LogPath
                 if ($UseHealthcheck) {
                     Send-Healthcheck
                 }
@@ -450,7 +449,7 @@ function Invoke-Main {
             Write-Log "Total of $($stats.Total) backups ($($stats.Success) successful backups)"
         }
         if ($internet_available -eq $true) {
-            # Invoke-HistoryCheck $backup_log
+            # Invoke-HistoryCheck $LogPath
             if ($UseHealthcheck) {
                 Send-Healthcheck
             }
@@ -461,8 +460,7 @@ function Invoke-Main {
     }    
 
     Set-BackupState
-
-    return $ErrorCount
 }
 
 Invoke-Main
+exit $ErrorCount
