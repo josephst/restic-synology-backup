@@ -20,7 +20,7 @@ env:
   # REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
-  DOCKER_IMAGE_NAME: josephst18/restic-synology-backup
+  DOCKER_IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME}}/restic-synology-backup
 
 
 jobs:
