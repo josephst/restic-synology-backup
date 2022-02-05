@@ -20,6 +20,15 @@ ENV NFS_TARGET=""
 ENV BACKUP_CRON="0 */6 * * *"
 ENV RESTIC_INIT_ARGS=""
 
+# Maintenance
+ENV RESTIC_MAINT_INTERVAL=7
+ENV RESTIC_MAINT_DAYS=30
+# download and check 5gb of backed up data, every 90 days
+ENV RESTIC_DEEP_MAINT="Y"
+ENV RESTIC_DEEP_MAINT_DAYS=90
+# supports restic's --read-data-subset options; 100% to read whole repo
+ENV RESTIC_DEEP_MAINT_SIZE="10%"
+
 # Healthcheck
 ENV USE_HEALTHCHECK="N"
 ENV HC_PING=""
@@ -30,17 +39,15 @@ VOLUME /data
 # /mnt/copy contains an existing restic repo to copy from
 VOLUME /mnt/copy
 
-# /etc/backup contains configuration files for backup
+# /etc/backup contains configuration files for backup and CSV files from backups
 VOLUME /etc/backup
 
-COPY backup.ps1 /bin/backup/backup
+COPY backup.ps1 /bin/backup/backup.ps1
 COPY entry.ps1 /entry.ps1
 
 # TODO: find better config file locations and move logs into correct folder
-COPY config/secrets.ps1 /etc/backup/secrets.ps1
 COPY config/config.ps1 /etc/backup/config.ps1
 COPY config/local.exclude /etc/backup/local.exclude
-RUN mkdir -p /var/log/restic/
 
 WORKDIR "/"
 

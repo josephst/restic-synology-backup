@@ -4,7 +4,6 @@
 
 # set restic configuration parmeters (destination, passwords, etc.)
 # TODO: put these in a configuration directory
-$SecretsScript = Join-Path "/etc/backup" "secrets.ps1"
 
 # backup configuration variables
 $ConfigScript = Join-Path "/etc/backup" "config.ps1"
@@ -12,7 +11,6 @@ $ConfigScript = Join-Path "/etc/backup" "config.ps1"
 # =========== end configuration =========== #
 
 # Load configuration
-. $SecretsScript
 . $ConfigScript
 
 
@@ -24,9 +22,6 @@ $Script:ResticStateMaintenanceCounter = $null
 
 # globals for error counting
 [int]$ErrorCount = 0
-
-# Misc other globals
-$backup_log = $LogPath
 
 function Write-Log {
     [cmdletbinding()]
@@ -49,12 +44,71 @@ function Write-Log {
             $message = $LogMessage
         }
         if ($IsErrorMessage) {
-            "[$timeStamp] [ERROR] $message" | Tee-Object -FilePath $backup_log -Append | Write-Error
+            "[$timeStamp] [ERROR] $message" | Tee-Object -FilePath $LogPath -Append | Write-Error
         }
         else {
-            # Write-Verbose -Verbose so we can actually see what's being printed
-            "[$timeStamp] $message" | Tee-Object -FilePath $backup_log -Append | Write-Verbose -Verbose
+            "[$timeStamp] $message" | Tee-Object -FilePath $LogPath -Append | Write-Verbose -Verbose
         }
+    }
+}
+
+function Write-BackupJson {
+    [CmdletBinding()]
+    param (
+        [switch]
+        $Failure
+    )
+    process {
+        $backup_results_path = Join-Path "/etc/backup" "results.json"
+        $previous_backups = @()
+        if (Test-Path $backup_results_path) {
+            $previous_backups = Get-Content $backup_results_path | Out-String | ConvertFrom-Json
+        }
+
+        # add new data to array
+        $recent_backup_data = [pscustomobject]@{
+            Date    = $(Get-Date)
+            Success = !$Failure
+        }
+
+        # limit to 30 days ($LogRetentionDays) of backup history
+        $previous_backups = @($previous_backups) + @($recent_backup_data)
+        $previous_backups = $previous_backups.Where({ $_.Date -gt $(Get-Date).AddDays(-$LogRetentionDays) })
+
+        # save
+        $previous_backups | ConvertTo-Json -AsArray | Out-File $backup_results_path
+
+        $SuccessCount = $($previous_backups.Where{ $_.Success -eq $true }).Count
+        $TotalCount = $previous_backups.Count
+
+        # return success stats
+        $stats = [PSCustomObject]@{
+            Success = $SuccessCount
+            Total   = $TotalCount
+        }
+
+        return $stats
+    }
+}
+
+function Convert-FriendlyBytes {
+    # https://stackoverflow.com/a/24617034 by mjolinor & Peter Mortensen
+    param(
+        [Parameter(Mandatory)][int] $ByteCount
+    )
+    switch -Regex ([math]::truncate([math]::log($ByteCount, 1024))) {
+
+        '^0' { "$ByteCount Bytes" }
+    
+        '^1' { "{0:n2} KB" -f ($ByteCount / 1KB) }
+    
+        '^2' { "{0:n2} MB" -f ($ByteCount / 1MB) }
+    
+        '^3' { "{0:n2} GB" -f ($ByteCount / 1GB) }
+    
+        '^4' { "{0:n2} TB" -f ($ByteCount / 1TB) }
+    
+        Default { "{0:n2} PB" -f ($ByteCount / 1pb) }
     }
 }
 
@@ -115,21 +169,34 @@ function Invoke-Maintenance {
     #   `forget` only prunes when it detects removed snapshots upon invocation, not previously removed
     Write-Log "[[Maintenance]] Start pruning..."
     & $ResticBin prune $SnapshotPrunePolicy *>&1 | Write-Log
-    $pruneSuccess = $?
-    if (-not $pruneSuccess) {
+    if (-not $?) {
         Write-Log "[[Maintenance]] Prune operation completed with errors" -IsErrorMessage
         $ErrorCount++
         $maintenance_success = $false
     }
 
-    # perform quick data check (full data checks are done by datacheck.ps1)
-    Write-Log "[[Maintenance]] Performing fast data check - deep '--read-data' check last ran $ResticStateLastDeepMaintenance ($($delta.Days) days ago)"
-    # Write-Output "[[Maintenance]] Run `datacheck.ps1` for a full data check" | Tee-Object -Append $BackupLog
+    $data_check = @()
+    if ($null -ne $ResticStateLastDeepMaintenance) {
+        $delta = New-TimeSpan -Start $ResticStateLastMaintenance -End $(Get-Date)
+        if ($SnapshotDeepMaintenance && $delta.Days -ge $SnapshotDeepMaintenanceDays) {
+            # Deep maintenance (ie perform a data check)
+            Write-Log "[[Maintenance]] Performing deep data check - deep '--read-data' check last ran $ResticStateLastDeepMaintenance ($($delta.Days) days ago)"
+            Write-Log "[[Maintenance]] Will read $SnapshotDeepMaintenanceSize of data"
+            $data_check = @("--read-data-subset=$SnapshotDeepMaintenanceSize")
+            $Script:ResticStateLastDeepMaintenance = Get-Date
+        } else {
+            Write-Log "[[Maintenance]] Performing fast data check - deep '--read-data' check last ran $ResticStateLastDeepMaintenance ($($delta.Days) days ago)"
+        }
 
-    & $ResticBin check *>&1 | Write-Log
-    if (-not $?) {
-        Write-Log "[[Maintenance]] It looks like the data check failed! Possible data corruption?" -IsErrorMessage
-        $ErrorCount++
+        & $ResticBin check @data_check *>&1 | Write-Log
+        if (-not $?) {
+            Write-Log "[[Maintenance]] It looks like the data check failed! Possible data corruption?" -IsErrorMessage
+            $ErrorCount++
+        }
+    }
+    else {
+        # set the date, but don't do a check if we've never done a deep maintenance
+        $Script:ResticStateLastDeepMaintenance = Get-Date
     }
 
     Write-Log "[[Maintenance]] End $(Get-Date)"
@@ -156,11 +223,21 @@ function Invoke-Backup {
         if (Test-Path $folder) {
             # Launch Restic
             Write-Log "[[Backup]] Backing up $folder"
-            & $ResticBin backup $folder --tag "$folder" --exclude-file=$LocalExcludeFile --one-file-system *>&1 | Write-Log
-            if (-not $?) {
+            $backupJson = & $ResticBin backup $folder --json --tag "$folder" --exclude-file=$LocalExcludeFile | ConvertFrom-Json
+            $backupSuccess = $?
+            if (-not $backupSuccess) {
+                $errorMessage = $backupJson.Where{ $_.message_type -match "error" } | Format-List | Out-String
+                Write-Log "[[Backup]] $errorMessage" -IsErrorMessage
                 Write-Log "[[Backup]] Completed with errors" -IsErrorMessage
                 $ErrorCount++
                 $return_value = $false
+            }
+            else {
+                $backupSummary = $backupJson[-1] # last message is summary message
+                $summaryText = "[[Backup]] Backed up $($backupSummary.files_new) new files " +
+                "($(Convert-FriendlyBytes $backupSummary.data_added)) in $($backupSummary.total_duration) " +
+                "seconds."
+                Write-Log $summaryText
             }
         }
         else {
@@ -194,9 +271,10 @@ function Invoke-Copy {
     }
     else {
         Write-Log "[[Copy]] Start $(Get-Date)"
+        Write-Log "[[Copy]] Copying from $Env:RESTIC_REPOSITORY2 to $Env:RESTIC_REPOSITORY"
         $return_value = $true
     
-        # swap passwords around
+        # swap passwords around, 
         $env:RESTIC_PASSWORD, $env:RESTIC_PASSWORD2 = $env:RESTIC_PASSWORD2, $env:RESTIC_PASSWORD
     
         try {
@@ -209,7 +287,9 @@ function Invoke-Copy {
             }
             else {
                 # copy from local repo (repo2) to remote repo
-                & $ResticBin -r $Env:RESTIC_REPOSITORY2 copy --repo2 $env:RESTIC_REPOSITORY *>&1 | Write-Log
+                # since passwords are swapped, primary password is now for repo2 (the local repo)
+                # and secondary password is for repo1  (the repo being copied to)
+                & $ResticBin -r $Env:RESTIC_REPOSITORY2 copy --repo2 $env:RESTIC_REPOSITORY | Write-Log
                 if (-not $?) {
                     $return_value = $false
                     Write-Log "[[Copy]] Copying completed with errors" -IsErrorMessage
@@ -292,27 +372,9 @@ function Invoke-ConnectivityCheck {
 }
 
 function Send-Healthcheck {
-
-    # $status = "SUCCESS"
-    # $success_after_failure = $false
     $body = ""
-    # if (($null -ne $SuccessLog) -and (Test-Path $SuccessLog) -and (Get-Item $SuccessLog).Length -gt 0) {
-    #     $body = $(Get-Content -Raw $SuccessLog)
-    #     # if previous run contained an error, send the success email confirming that the error has been resolved
-    #     # (i.e. get previous error log, if it's not empty, trigger the send of the success-after-failure email)
-    #     $previous_error_log = Get-ChildItem $LogPath -Filter '*err.txt' | Sort-Object -Descending LastWriteTime | Select-Object -Skip 1 | Select-Object -First 1
-    #     if (($null -ne $previous_error_log) -and ($previous_error_log.Length -gt 0)) {
-    #         $success_after_failure = $true
-    #     }
-    # }
 
-    # else {
-    # $body = "Critical Error! Restic backup log is empty or missing. Check log file path."
-    # $status = "ERROR"
-    # }
-    # $attachments = @{}
-
-    if (($null -eq $backup_log) -or (-not (Test-Path $backup_log)) -or (Get-Item $backup_log).Length -eq 0) {
+    if (($null -eq $LogPath) -or (-not (Test-Path $LogPath)) -or (Get-Item $LogPath).Length -eq 0) {
         # Restic backup log is missing or empty
         # $status = "ERROR"
         $body = "[[Healthcheck]] Restic backup log is missing or empty!"
@@ -320,7 +382,7 @@ function Send-Healthcheck {
         $ErrorCount++
     }
     else {
-        $body = $(Get-Content -Raw $backup_log)
+        $body = $(Get-Content -Raw $LogPath)
     }
 
     Invoke-RestMethod -Method Post -Uri "$hc_url/$ErrorCount" -Body $body | Out-Null
@@ -332,7 +394,6 @@ function Send-Healthcheck {
 }
 
 function Invoke-Main {
-
     # Start Backup Timer
     if ($UseHealthcheck) {
         Invoke-RestMethod "$hc_url/start" | Out-Null
@@ -344,10 +405,12 @@ function Invoke-Main {
 
     while ($attempt_count -gt 0) {
         # setup logfiles
-        if (Test-Path $backup_log) {
-            Write-Log "Removing old log file: $backup_log"
-            Remove-Item $backup_log
+        if (Test-Path $LogPath) {
+            Write-Log "Removing old log file: $LogPath"
+            Remove-Item $LogPath
         }
+        Add-Content -Value "RESTIC SYNOLOGY BACKUP" -Path $LogPath
+        
         
         $internet_available = Invoke-ConnectivityCheck
         if ($internet_available -eq $true) { 
@@ -363,7 +426,10 @@ function Invoke-Main {
                 $total_attempts = $GlobalRetryAttempts - $attempt_count + 1
                 Write-Log "Succeeded after $total_attempts attempt(s)"
                 $ResticStateSuccessfulBackups++
-                # Invoke-HistoryCheck $backup_log
+
+                $stats = Write-BackupJson
+                Write-Log "Total of $($stats.Total) backups ($($stats.Success) successful backups) in past $LogRetentionDays days"
+                # Invoke-HistoryCheck $LogPath
                 if ($UseHealthcheck) {
                     Send-Healthcheck
                 }
@@ -377,10 +443,12 @@ function Invoke-Main {
         }
         else {
             Write-Log "[[Retry]] Retry limit has been reached. No more attempts to backup will be made." -IsErrorMessage
+            $stats = Write-BackupJson -Failure
             $ErrorCount++
+            Write-Log "Total of $($stats.Total) backups ($($stats.Success) successful backups)"
         }
         if ($internet_available -eq $true) {
-            # Invoke-HistoryCheck $backup_log
+            # Invoke-HistoryCheck $LogPath
             if ($UseHealthcheck) {
                 Send-Healthcheck
             }
@@ -391,8 +459,7 @@ function Invoke-Main {
     }    
 
     Set-BackupState
-
-    return $ErrorCount
 }
 
 Invoke-Main
+exit $ErrorCount
