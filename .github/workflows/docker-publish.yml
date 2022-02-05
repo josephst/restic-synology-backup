@@ -20,6 +20,7 @@ env:
   # REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
+  DOCKER_IMAGE_NAME: josephst18/restic-synology-backup
 
 
 jobs:
@@ -101,4 +102,4 @@ jobs:
         # against the sigstore community Fulcio instance.
         run: |
           cosign sign ghcr.io/${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
-          cosign sign docker.io/${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
+          cosign sign docker.io/${{ env.DOCKER_IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
