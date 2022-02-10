@@ -10,6 +10,10 @@ RUN apk add --update --no-cache ca-certificates fuse openssh-client tzdata
 ENV RESTIC_REPOSITORY="/mnt/restic"
 ENV RESTIC_PASSWORD=""
 
+# B2 config
+ENV B2_ACCOUNT_ID="id"
+ENV B2_ACCOUNT_KEY="key"
+
 # local restic repo (Repo2) is copied to remote restic repo
 ENV RESTIC_REPOSITORY2="/mnt/copy"
 ENV RESTIC_PASSWORD2=""
