@@ -24,6 +24,9 @@ ENV NFS_TARGET=""
 ENV BACKUP_CRON="5 0 * * *"
 ENV RESTIC_INIT_ARGS=""
 
+# default to random delay 0-60 seconds for backups
+ENV RANDOM_DELAY="60"
+
 # Maintenance
 ENV RESTIC_MAINT_INTERVAL=7
 ENV RESTIC_MAINT_DAYS=30

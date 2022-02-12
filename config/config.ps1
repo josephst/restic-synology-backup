@@ -30,3 +30,9 @@ $CopyLocalRepo = $Env:COPY_LOCAL_REPO -eq "Y"
 # Paths to backup
 $BackupSources = @("/data")
 # $BackupSources["/data"] = @()
+
+function Start-RandomSleep {
+    $Delay = [int]$Env:RANDOM_DELAY ?? 0
+    $SleepDelay = Get-Random -Minimum 0 -Maximum $Delay
+    Start-Sleep -Seconds $SleepDelay
+}

@@ -394,6 +394,9 @@ function Send-Healthcheck {
 }
 
 function Invoke-Main {
+    # random sleep delay
+    Start-RandomSleep
+
     # Start Backup Timer
     if ($UseHealthcheck) {
         Invoke-RestMethod "$hc_url/start" | Out-Null
