@@ -14,6 +14,7 @@ $remoteRepo = Join-Path $dir "/test/remoteRepo"
 
 $USE_HEALTHCHECK = $env:USE_HEALTHCHECK ?? "N"
 $HC_PING = $env:HC_PING ?? ""
+$RANDOM_DELAY = [int]$env:RANDOM_DELAY ?? 0  # dev env = no random sleep delays
 
 docker run --privileged --name backup-test `
     -h "restic-backup" `
@@ -23,6 +24,7 @@ docker run --privileged --name backup-test `
     -e "BACKUP_CRON=* * * * *" `
     -e "USE_HEALTHCHECK=$USE_HEALTHCHECK" `
     -e "HC_PING=$HC_PING" `
+    -e "RANDOM_DELAY=$RANDOM_DELAY"`
     -v "$($setA):/data" `
     -v "$($copy):/mnt/copy" `
     -v "$($remoteRepo):/mnt/restic" `
