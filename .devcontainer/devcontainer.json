@@ -36,9 +36,8 @@
 	// Uncomment to use the Docker CLI from inside the container. See https://aka.ms/vscode-remote/samples/docker-from-docker.
 	// "mounts": [ "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind" ],
 	"mounts": [
-		"source=${localWorkspaceFolder}\\dataForBackup\\setA,target=/data,type=bind",
-		"source=${localWorkspaceFolder}\\dataForBackup\\setB,target=/dataB,type=bind",
-		"source=${localWorkspaceFolder}\\dataForBackup\\copy,target=/mnt/copy,type=bind",
+		"source=${localWorkspaceFolder}\\test\\dataForBackup\\setA,target=/data,type=bind",
+		"source=${localWorkspaceFolder}\\test\\dataForBackup\\copy,target=/mnt/copy,type=bind",
 		"source=${localWorkspaceFolder}\\test\\remoteRepo,target=/mnt/restic,type=bind",
 		"source=${localWorkspaceFolder}\\config,target=/etc/backup,type=bind"
 	]
