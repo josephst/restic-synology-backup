@@ -47,11 +47,12 @@ VOLUME /data
 VOLUME /mnt/copy
 
 # /etc/backup contains configuration files for backup and CSV files from backups
-COPY src/config/config.ps1 /etc/backup/config.ps1
-COPY src/config/local.exclude /etc/backup/local.exclude
+COPY src/config/config.ps1 /etc/backup/
+COPY src/config/local.exclude /etc/backup/
 VOLUME /etc/backup
 
-COPY src/backup.ps1 /bin/backup/backup.ps1
+COPY src/script/ /bin/backup/
+
 COPY src/entry.ps1 /entry.ps1
 
 WORKDIR "/"

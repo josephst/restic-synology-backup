@@ -12,7 +12,7 @@ if ($status -eq $false) {
 }
 
 Write-Output "Setup backup cron job with cron expression BACKUP_CRON: $env:BACKUP_CRON"
-Write-Output "$env:BACKUP_CRON /usr/bin/flock -n /var/run/backup.lock pwsh /bin/backup/backup.ps1 >> /var/log/cron.log 2&>1" `
+Write-Output "$env:BACKUP_CRON /usr/bin/flock -n /var/run/backup.lock pwsh /bin/backup/main.ps1 >> /var/log/cron.log 2&>1" `
 | Out-File -Append "/var/spool/cron/crontabs/root"
 
 # prevent cron.log from getting too large
