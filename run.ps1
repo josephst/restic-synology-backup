@@ -7,9 +7,9 @@ Write-Output "Copy from ./dataForBackup/copy (existing local repo) to ./test/rem
 
 $dir = $PSScriptRoot
 
-$configDir = Join-Path $dir "/config"
-$setA = Join-Path $dir "/dataForBackup/setA"
-$copy = Join-Path $dir "/dataForBackup/copy"
+$configDir = Join-Path $dir "/src/config"
+$setA = Join-Path $dir "/test/dataForBackup/setA"
+$copy = Join-Path $dir "/test/dataForBackup/copy"
 $remoteRepo = Join-Path $dir "/test/remoteRepo"
 
 $USE_HEALTHCHECK = $env:USE_HEALTHCHECK ?? "N"

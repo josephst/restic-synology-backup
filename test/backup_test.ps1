@@ -15,7 +15,7 @@ function Test-Backup {
     }
 
     # Run backup
-    . .\backup.ps1
+    . (Join-Path $PSScriptRoot "../src/script/main.ps1")
 }
 
 function New-Repo {
@@ -115,7 +115,9 @@ function Remove-Backup {
 # run tests
 . $ConfigScript
 
-$LogPath = Join-Path $PSScriptRoot "logs/backup-test.log" # for testing, put log file in this folder
+# override $LogPath from the config script
+$LogPath = Join-Path $PSScriptRoot "../logs/backup-test.log" # for testing, put log file in this folder
+$Env:RANDOM_DELAY = 0 # no delays for testing
 
 Remove-Backup
 # New-LocalRepo
