@@ -8,7 +8,21 @@ Write-Output "Check Repo status: $status"
 
 if ($status -eq $false) {
     Write-Error "[ERROR] Restic repository $env:RESTIC_REPOSITORY does not exist."
-    exit 1
+    Write-Output "[[Init]] Creating new restic repository with restic init"
+
+    if ($null -eq $env:RESTIC_REPOSITORY2) {
+        restic init
+    }
+    else {
+        # if there's a second repo we'll be copying from,
+        # use its chunker params for data dedup
+        restic init --copy-chunker-params
+    }
+        
+    if (-not $?) {
+        Write-Error "[ERROR] [[Init]] Failed to init the repository: $($Env:RESTIC_REPOSITORY)"
+        exit 1
+    }
 }
 
 Write-Output "Setup backup cron job with cron expression BACKUP_CRON: $env:BACKUP_CRON"

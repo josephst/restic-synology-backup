@@ -1,5 +1,5 @@
 *.env
-logs/**
-test/remoteRepo/**
+logs/
+test/remoteRepo/
 src/config/results.json
 src/config/state.xml
