@@ -52,8 +52,8 @@ VOLUME /mnt/copy
 VOLUME /etc/backup/
 
 COPY src/script/ /bin/backup/
-
 COPY src/entry.ps1 /entry.ps1
+COPY src/100-delete-backup-logs.sh /etc/periodic/monthly/
 
 WORKDIR "/"
 

@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# delete contents of cron log
+printf "" > /var/log/cron.log
+
+echo "Deleted last month's backup logs"
