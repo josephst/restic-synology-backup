@@ -57,6 +57,11 @@ function Invoke-Maintenance {
         $maintenance_success = $false
     }
 
+        
+    if ($maintenance_success -eq $true) {
+        $Script:ResticStateLastMaintenance = Get-Date
+        $Script:ResticStateMaintenanceCounter = 0
+    }
 }
 
 function Invoke-Datacheck {
@@ -86,9 +91,4 @@ function Invoke-Datacheck {
     }
 
     Write-Log "[[Maintenance]] End $(Get-Date)"
-    
-    if ($maintenance_success -eq $true) {
-        $Script:ResticStateLastMaintenance = Get-Date
-        $Script:ResticStateMaintenanceCounter = 0
-    }
 }

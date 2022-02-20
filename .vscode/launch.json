@@ -8,7 +8,7 @@
             "name": "PowerShell Launch Script",
             "type": "PowerShell",
             "request": "launch",
-            "script": "${workspaceFolder}/backup_test.ps1",
+            "script": "${workspaceFolder}/test/backup_test.ps1",
             "args": ["-Verbose"],
             "cwd": "${workspaceFolder}"
         },

@@ -24,7 +24,10 @@ $Script:ResticStateMaintenanceCounter = $null
 
 function Start-RandomSleep {
     $Delay = [int]$Env:RANDOM_DELAY ?? 0
-    $SleepDelay = Get-Random -Minimum 0 -Maximum $Delay
+    $SleepDelay = 0
+    if ($Delay -gt 0) {
+        $SleepDelay = Get-Random -Minimum 0 -Maximum $Delay
+    }
     Start-Sleep -Seconds $SleepDelay
 }
 
