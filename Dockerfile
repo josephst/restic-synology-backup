@@ -46,10 +46,11 @@ VOLUME /data
 # /mnt/copy contains an existing restic repo to copy from
 VOLUME /mnt/copy
 
-# /etc/backup contains configuration files for backup and CSV files from backups
-# COPY src/config/config.ps1 /etc/backup/
-# COPY src/config/local.exclude /etc/backup/
-VOLUME /etc/backup/
+# /var/backup contains JSON logs from previous runs
+VOLUME /var/backup/
+
+# /etc/backup contains configuration files for backup
+COPY src/config/ /etc/backup/
 
 COPY src/script/ /bin/backup/
 COPY src/entry.ps1 /entry.ps1

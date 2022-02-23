@@ -6,7 +6,6 @@
 # TODO: put these in a configuration directory
 
 # backup configuration variables
-# $ConfigScript = Join-Path "/etc/backup" "config.ps1"
 $CommonScript = Join-Path $PSScriptRoot "common.ps1"
 
 # =========== end configuration =========== #
