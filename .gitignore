@@ -1,5 +1,6 @@
 *.env
 logs/
 test/remoteRepo/
+test/logDir/
 src/config/results.json
 src/config/state.xml

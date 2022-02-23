@@ -77,7 +77,7 @@ function Write-BackupJson {
         $Failure
     )
     process {
-        $backup_results_path = Join-Path "/etc/backup" "results.json"
+        $backup_results_path = Join-Path "/var/backup" "results.json"
         $previous_backups = @()
         if (Test-Path $backup_results_path) {
             $previous_backups = Get-Content $backup_results_path | Out-String | ConvertFrom-Json

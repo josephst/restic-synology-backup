@@ -14,6 +14,9 @@ function Test-Backup {
         New-Repo
     }
 
+    # Make sure log file exists
+    New-Item -Force -Path $LogPath
+
     # Run backup
     . (Join-Path $PSScriptRoot "../src/script/main.ps1")
 }
@@ -109,14 +112,14 @@ function Remove-Backup {
             exit 1
         }
     }
-    Remove-Item -Recurse -Force logs/*
+    Remove-Item -Recurse -Force test/logDir/*
 }
 
 # run tests
 . $ConfigScript
 
 # override $LogPath from the config script
-$LogPath = Join-Path $PSScriptRoot "../logs/backup-test.log" # for testing, put log file in this folder
+$LogPath = Join-Path $PSScriptRoot "logDir/backup-test.log" # for testing, put log file in this folder
 $Env:RANDOM_DELAY = 0 # no delays for testing
 
 Remove-Backup
