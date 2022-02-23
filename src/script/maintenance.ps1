@@ -17,11 +17,11 @@ $CommonScript = Join-Path $PSScriptRoot "common.ps1"
 # Common functions
 . $CommonScript
 
-function Invoke-Maintenance {
-    
+function Get-MaintenanceDue {
     # skip maintenance if disabled
     if ($SnapshotMaintenanceEnabled -eq $false) {
         Write-Log "[[Maintenance]] Skipped - maintenance disabled"
+        return $false
     }
 
     # skip maintenance if it's been done recently
@@ -30,10 +30,13 @@ function Invoke-Maintenance {
         $delta = New-TimeSpan -Start $ResticStateLastMaintenance -End $(Get-Date)
         if (($delta.Days -lt $SnapshotMaintenanceDays) -and ($ResticStateMaintenanceCounter -lt $SnapshotMaintenanceInterval)) {
             Write-Log "[[Maintenance]] Skipped - last maintenance $ResticStateLastMaintenance ($($delta.Days) days, $ResticStateMaintenanceCounter backups ago)"
-            return
+            return $false # false = maintenance is NOT due
         }
     }
+    return $true
+}
 
+function Invoke-Maintenance {
     Write-Log "[[Maintenance]] Start $(Get-Date)"
     $maintenance_success = $true
     Start-Sleep 5

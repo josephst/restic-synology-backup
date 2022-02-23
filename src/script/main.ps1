@@ -51,8 +51,10 @@ function Invoke-Main {
             $backup = Invoke-Backup
             $copy = Invoke-Copy
             if ($backup && $copy) {
-                Invoke-Maintenance
-                Invoke-Datacheck
+                if (Get-MaintenanceDue) {
+                    Invoke-Maintenance
+                    Invoke-Datacheck
+                }
             }
 
             if ($ErrorCount -eq 0) {
