@@ -13,7 +13,7 @@ $ResticBin = "/usr/bin/restic"
 # maintenance configuration
 $SnapshotMaintenanceEnabled = $true
 $SnapshotRetentionPolicy = @("--group-by", "host,tags", "--keep-daily", "30", "--keep-weekly", "52", "--keep-monthly", "24", "--keep-yearly", "10")
-$SnapshotPrunePolicy = @("--max-unused", "1%")
+$SnapshotPrunePolicy = @("--max-unused", "8%")
 $SnapshotMaintenanceInterval = $Env:RESTIC_MAINT_INTERVAL ?? 7
 $SnapshotMaintenanceDays = $Env:RESTIC_MAINT_DAYS ?? 30
 $SnapshotDeepMaintenance = $Env:RESTIC_DEEP_MAINT -eq "Y"
