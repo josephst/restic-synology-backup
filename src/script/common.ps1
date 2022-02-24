@@ -49,7 +49,7 @@ function Write-Log {
     )
 
     begin {
-        $timeStamp = Get-Date -Format 'hh:mm:ss'
+        $timeStamp = Get-Date -Format 'HH:mm:ss'
     }
 
     process {
