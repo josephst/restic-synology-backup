@@ -92,10 +92,14 @@ function Invoke-Copy {
                 # copy from local repo (repo2) to remote repo
                 # since passwords are swapped, primary password is now for repo2 (the local repo)
                 # and secondary password is for repo1  (the repo being copied to)
-                & $ResticBin -r $Env:RESTIC_REPOSITORY2 copy --repo2 $env:RESTIC_REPOSITORY | Write-Log
-                if (-not $?) {
+                $copyOutput = & $ResticBin -r $Env:RESTIC_REPOSITORY2 copy --repo2 $env:RESTIC_REPOSITORY
+                $copySuccess = $?
+                if (-not $copySuccess) {
                     $return_value = $false
                     Write-Log "[[Copy]] Copying completed with errors" -IsErrorMessage
+                } else {
+                    $copyGroups = $copyOutput -split '(?:\r?\n){2,}'
+                    Write-Log "[[Copy]] Copied $($copyGroups.Count) snapshots"
                 }
             }
         }
