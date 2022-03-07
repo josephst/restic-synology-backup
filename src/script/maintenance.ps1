@@ -42,11 +42,21 @@ function Invoke-Maintenance {
 
     # forget snapshots based upon the retention policy
     Write-Log "[[Maintenance]] Start forgetting..." 
-    & $ResticBin forget $SnapshotRetentionPolicy *>&1 | Write-Log
-    if (-not $?) {
+    $ForgetJson = & $ResticBin forget $SnapshotRetentionPolicy --json | ConvertFrom-Json
+    $ForgetStatus = $?
+    if (-not $ForgetStatus) {
         Write-Log "[[Maintenance]] Forget operation completed with errors" -IsErrorMessage
+        Write-Log "[[Maintenance]] $ForgetJson" -IsErrorMessage
         $ErrorCount++
         $maintenance_success = $false
+    }
+    else {
+        $keepCount = 0
+        $removeCount = 0
+        $ForgetJson | ForEach-Object { $keepCount += $_.keep.Count
+            $removeCount += $_.remove.Count }
+        Write-Log "[[Maintenance]] Keeping $keepCount snapshots, forgetting $removeCount snapshots"
+        Write-Log "[[Maintenance]] Forget operation succeeded"
     }
 
     # prune (remove) data from the backup step. Running this separate from `forget` because

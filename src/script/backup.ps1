@@ -97,7 +97,8 @@ function Invoke-Copy {
                 if (-not $copySuccess) {
                     $return_value = $false
                     Write-Log "[[Copy]] Copying completed with errors" -IsErrorMessage
-                } else {
+                }
+                else {
                     $copyGroups = $copyOutput -split '(?:\r?\n){2,}'
                     Write-Log "[[Copy]] Copied $($copyGroups.Count) snapshots"
                 }
