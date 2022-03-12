@@ -19,6 +19,11 @@ $Script:ResticStateLastMaintenance = $null
 $Script:ResticStateLastDeepMaintenance = $null
 $Script:ResticStateMaintenanceCounter = $null
 
+# local (ie when maintenance was last run on the backups stored on the NAS)
+$Script:ResticStateLocalLastMaintenance = $null
+$Script:ResticStateLocalLastDeepMaintenance = $null
+$Script:ResticStateLocalMaintenanceCounter = $null
+
 # globals for error counting
 [int]$Script:ErrorCount = 0
 

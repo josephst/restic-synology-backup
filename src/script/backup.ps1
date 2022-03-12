@@ -77,10 +77,10 @@ function Invoke-Copy {
         Write-Log "[[Copy]] Copying from $Env:RESTIC_REPOSITORY2 to $Env:RESTIC_REPOSITORY"
         $return_value = $true
     
-        # swap passwords around, 
-        $env:RESTIC_PASSWORD, $env:RESTIC_PASSWORD2 = $env:RESTIC_PASSWORD2, $env:RESTIC_PASSWORD
-    
         try {
+            # swap passwords around, 
+            $env:RESTIC_PASSWORD, $env:RESTIC_PASSWORD2 = $env:RESTIC_PASSWORD2, $env:RESTIC_PASSWORD
+            
             # test to make sure local repo exists before copying from it
             & $ResticBin snapshots -r $Env:RESTIC_REPOSITORY2 | Out-Null
             if (-not $?) {

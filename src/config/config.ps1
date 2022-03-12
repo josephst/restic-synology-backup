@@ -11,7 +11,8 @@ $IgnoreMissingBackupSources = $false
 $ResticBin = "/usr/bin/restic"
 
 # maintenance configuration
-$SnapshotMaintenanceEnabled = $true
+$SnapshotMaintenanceEnabled = $true # maintenance on remote (B2 or S3) repo
+$SnapshotLocalMaintenanceEnabled = $true # maintenance on local repo (which is copied to remote)
 $SnapshotRetentionPolicy = @("--group-by", "host,tags", "--keep-daily", "30", "--keep-weekly", "52", "--keep-monthly", "24", "--keep-yearly", "10")
 $SnapshotPrunePolicy = @("--max-unused", "8%")
 $SnapshotMaintenanceInterval = $Env:RESTIC_MAINT_INTERVAL ?? 7
