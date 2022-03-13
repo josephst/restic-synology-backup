@@ -19,7 +19,7 @@ $CommonScript = Join-Path $PSScriptRoot "common.ps1"
 # Forget and Prune local snapshots (ie ones that were backed up to restic)
 # Should run before copying snapshots to remote (B2, S3, etc) repo
 
-function Invoke-Maintenance {
+function Invoke-LocalMaintenance {
     Write-Log "[[Local Maintenance]] Start $(Get-Date)"
     $maintenance_success = $true
     Start-Sleep 5
@@ -72,7 +72,7 @@ function Invoke-Maintenance {
     }
 }
 
-function Invoke-Datacheck {
+function Invoke-LocalDatacheck {
     $data_check = @()
     if ($null -ne $ResticStateLastDeepMaintenance) {
         $delta = New-TimeSpan -Start $ResticStateLastMaintenance -End $(Get-Date)
@@ -87,7 +87,7 @@ function Invoke-Datacheck {
             Write-Log "[[Local Maintenance]] Performing fast data check - deep '--read-data' check last ran $ResticStateLastDeepMaintenance ($($delta.Days) days ago)"
         }
         try {
-            # swap passwords around, 
+            # swap passwords around
             $env:RESTIC_PASSWORD, $env:RESTIC_PASSWORD2 = $env:RESTIC_PASSWORD2, $env:RESTIC_PASSWORD
             & $ResticBin check @data_check *>&1 | Write-Log
             if (-not $?) {

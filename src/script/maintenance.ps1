@@ -35,26 +35,6 @@ function Get-MaintenanceDue {
     return $true
 }
 
-function Get-LocalMaintenanceDue {
-    # skip maintenance if disabled
-    if ($SnapshotLocalMaintenanceEnabled -eq $false) {
-        Write-Log "[[Maintenance]] Skipped - maintenance disabled"
-        return $false
-    }
-
-    # skip maintenance if it's been done recently
-    # TODO: FINISH CONVERTING VARIABLES TO resticstateLOCALlastmaintenance...
-    if (($null -ne $ResticStateLastMaintenance) -and ($null -ne $ResticStateMaintenanceCounter)) {
-        $Script:ResticStateMaintenanceCounter += 1
-        $delta = New-TimeSpan -Start $ResticStateLastMaintenance -End $(Get-Date)
-        if (($delta.Days -lt $SnapshotMaintenanceDays) -and ($ResticStateMaintenanceCounter -lt $SnapshotMaintenanceInterval)) {
-            Write-Log "[[Maintenance]] Skipped - last maintenance $ResticStateLastMaintenance ($($delta.Days) days, $ResticStateMaintenanceCounter backups ago)"
-            return $false # false = maintenance is NOT due
-        }
-    }
-    return $true
-}
-
 function Invoke-Maintenance {
     Write-Log "[[Maintenance]] Start $(Get-Date)"
     $maintenance_success = $true
