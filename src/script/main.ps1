@@ -19,10 +19,8 @@ $CommonScript = Join-Path $PSScriptRoot "common.ps1"
 # Source remaining scripts
 $BackupScript = Join-Path $PSScriptRoot "backup.ps1"
 $MaintenanceScript = Join-Path $PSScriptRoot "maintenance.ps1"
-$LocalMaintenanceScript = Join-Path $PSScriptRoot "maintenance-local.ps1"
 . $BackupScript
 . $MaintenanceScript
-. $LocalMaintenanceScript
 
 function Invoke-Main {
     # random sleep delay
@@ -45,21 +43,29 @@ function Invoke-Main {
         }
         Add-Content -Value "RESTIC SYNOLOGY BACKUP" -Path $LogPath
         
-        # perform local maintenance before copying to avoid copying snapshots
-        # that will immediately be pruned
-        Invoke-LocalMaintenance
-        
         $internet_available = Invoke-ConnectivityCheck
         if ($internet_available -eq $true) { 
             Invoke-Unlock
 
             $backup = Invoke-Backup
-            $copy = Invoke-Copy
+            $copy = $true
+            if (-not $CopyLocalRepo) {
+                Write-Log "[[Copy]] Skipping copy."
+            }
+            else {
+                # perform local maintenance before copying to avoid copying snapshots
+                # that will immediately be pruned
+                Invoke-LocalMaintenance
+                $copy = Invoke-Copy
+            }
+
             if ($backup && $copy) {
                 if (Get-MaintenanceDue) {
-                    Invoke-Maintenance
-                    Invoke-Datacheck
-                    Invoke-LocalDatacheck
+                    Invoke-RemoteMaintenance
+                    Invoke-RemoteDatacheck
+                    if ($CopyLocalRepo -eq $true) {
+                        Invoke-LocalDatacheck
+                    }
                 }
             }
 

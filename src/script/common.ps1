@@ -36,6 +36,9 @@ function Start-RandomSleep {
     Start-Sleep -Seconds $SleepDelay
 }
 
+function Switch-RepositoryPasswords {
+    $env:RESTIC_PASSWORD, $env:RESTIC_PASSWORD2 = $env:RESTIC_PASSWORD2, $env:RESTIC_PASSWORD
+}
 
 function Get-BackupState {
     if (Test-Path $StateFile) {
