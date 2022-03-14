@@ -69,7 +69,7 @@ function Invoke-Main {
                 }
             }
 
-            if ($ErrorCount -eq 0) {
+            if ($Script:ErrorCount -eq 0) {
                 # successful with no errors; end
                 $total_attempts = $GlobalRetryAttempts - $attempt_count + 1
                 Write-Log "Succeeded after $total_attempts attempt(s)"
@@ -92,7 +92,7 @@ function Invoke-Main {
         else {
             Write-Log "[[Retry]] Retry limit has been reached. No more attempts to backup will be made." -IsErrorMessage
             $stats = Write-BackupJson -Failure
-            $ErrorCount++
+            $Script:ErrorCount++
             Write-Log "Total of $($stats.Total) backups ($($stats.Success) successful backups)"
         }
         if ($internet_available -eq $true) {
@@ -110,4 +110,4 @@ function Invoke-Main {
 }
 
 Invoke-Main
-exit $ErrorCount
+exit $Script:ErrorCount

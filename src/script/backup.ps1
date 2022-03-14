@@ -23,7 +23,7 @@ function Invoke-Backup {
                 $errorMessage = $backupJson.Where{ $_.message_type -match "error" } | Format-List | Out-String
                 Write-Log "[[Backup]] $errorMessage" -IsErrorMessage
                 Write-Log "[[Backup]] Completed with errors" -IsErrorMessage
-                $ErrorCount++
+                $Script:ErrorCount++
                 $return_value = $false
             }
             else {
@@ -42,7 +42,7 @@ function Invoke-Backup {
             }
             else {
                 Write-Log $warning_message -IsErrorMessage
-                $ErrorCount++
+                $Script:ErrorCount++
                 $return_value = $false
             }
         }
@@ -70,7 +70,7 @@ function Invoke-Copy {
         & $ResticBin snapshots -r $Env:RESTIC_REPOSITORY2 | Out-Null
         if (-not $?) {
             Write-Log "[[Copy]] Could not find a local repository to copy from" -IsErrorMessage
-            $ErrorCount++
+            $Script:ErrorCount++
             $return_value = $false
         }
         else {

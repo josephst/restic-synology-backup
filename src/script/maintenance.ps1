@@ -92,7 +92,7 @@ function Invoke-Maintenance {
     if (-not $ForgetStatus) {
         Write-Log "[[Maintenance]] Forget operation completed with errors" -IsErrorMessage
         Write-Log "[[Maintenance]] $ForgetJson" -IsErrorMessage
-        $ErrorCount++
+        $Script:ErrorCount++
         $maintenance_success = $false
     }
     else {
@@ -110,7 +110,7 @@ function Invoke-Maintenance {
     & $ResticBin prune -r $repoPath $SnapshotPrunePolicy *>&1 | Write-Log
     if (-not $?) {
         Write-Log "[[Maintenance]] Prune operation completed with errors" -IsErrorMessage
-        $ErrorCount++
+        $Script:ErrorCount++
         $maintenance_success = $false
     }
 
@@ -135,14 +135,15 @@ function Invoke-Datacheck {
     $data_check = @()
     if ($null -ne $ResticStateLastDeepMaintenance) {
         $delta = New-TimeSpan -Start $ResticStateLastMaintenance -End $(Get-Date)
-        if ($SnapshotDeepMaintenance && $delta.Days -ge $SnapshotDeepMaintenanceDays) {
-            # Deep maintenance (ie perform a data check)
+        if ($SnapshotDeepMaintenance -and ($delta.Days -ge $SnapshotDeepMaintenanceDays) -and !$CheckLocalData) {
+            # Deep maintenance for remote repo (ie perform a data check)
             Write-Log "[[Maintenance]] Performing deep data check - deep '--read-data' check last ran $ResticStateLastDeepMaintenance ($($delta.Days) days ago)"
             Write-Log "[[Maintenance]] Will read $SnapshotDeepMaintenanceSize of data"
             $data_check = @("--read-data-subset=$SnapshotDeepMaintenanceSize")
             $Script:ResticStateLastDeepMaintenance = Get-Date
         }
         elseif ($CheckLocalData) {
+            # Deep maintenance for local repo
             Write-Log "[[Maintenance]] Working with locally stored data, will perform deep check"
             Write-Log "[[Maintenance]] Will read $SnapshotDeepMaintenanceSize of data"
             $data_check = @("--read-data-subset=$SnapshotDeepMaintenanceSize")
@@ -154,7 +155,7 @@ function Invoke-Datacheck {
         & $ResticBin check -r $repoPath @data_check *>&1 | Write-Log
         if (-not $?) {
             Write-Log "[[Maintenance]] It looks like the data check failed! Possible data corruption?" -IsErrorMessage
-            $ErrorCount++
+            $Script:ErrorCount++
         }
     }
     else {

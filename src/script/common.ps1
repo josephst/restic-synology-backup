@@ -194,7 +194,7 @@ function Invoke-ConnectivityCheck {
 
     if ([string]::IsNullOrEmpty($repository_host)) {
         Write-Log "[[Internet]] Repository string could not be parsed." -IsErrorMessage
-        $ErrorCount++
+        $Script:ErrorCount++
         return $false
     }
 
@@ -203,7 +203,7 @@ function Invoke-ConnectivityCheck {
     while ($true) {
         if ($sleep_count -le 0) {
             Write-Log "[ERROR] [[Internet]] Connection to repository ($repository_host) could not be established." -IsErrorMessage
-            $ErrorCount++
+            $Script:ErrorCount++
             return $false
         }
         elseif (!(Test-Connection -ComputerName $repository_host -Quiet)) {
@@ -225,16 +225,16 @@ function Send-Healthcheck {
         # $status = "ERROR"
         $body = "[[Healthcheck]] Restic backup log is missing or empty!"
         Write-Log $body -IsErrorMessage
-        $ErrorCount++
+        $Script:ErrorCount++
     }
     else {
         $body = $(Get-Content -Raw $LogPath)
     }
 
-    Invoke-RestMethod -Method Post -Uri "$hc_url/$ErrorCount" -Body $body | Out-Null
+    Invoke-RestMethod -Method Post -Uri "$hc_url/$($Script:ErrorCount)" -Body $body | Out-Null
 
     if (-not $?) {
         Write-Log "[[Healthcheck]] Sending Healthcheck ping completed with errors" -IsErrorMessage
-        $ErrorCount++
+        $Script:ErrorCount++
     }
 }

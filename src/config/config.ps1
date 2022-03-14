@@ -2,7 +2,6 @@ $ConfigDir = $PSScriptRoot # /etc/backup
 $LogPath = $LogPath ?? "/var/backup/restic.log"
 $StateFile = Join-Path $ConfigDir "state.xml"
 $LocalExcludeFile = Join-Path $ConfigDir "local.exclude"
-$LogRetentionDays = 30
 $InternetTestAttempts = 10
 $GlobalRetryAttempts = 4
 $IgnoreMissingBackupSources = $false
@@ -11,8 +10,7 @@ $IgnoreMissingBackupSources = $false
 $ResticBin = "/usr/bin/restic"
 
 # maintenance configuration
-$SnapshotMaintenanceEnabled = $true # maintenance on remote (B2 or S3) repo
-$SnapshotLocalMaintenanceEnabled = $true # maintenance on local repo (which is copied to remote)
+$SnapshotMaintenanceEnabled = $true # maintenance on remote & local repos
 $SnapshotRetentionPolicy = @("--group-by", "host,tags", "--keep-daily", "30", "--keep-weekly", "52", "--keep-monthly", "24", "--keep-yearly", "10")
 $SnapshotPrunePolicy = @("--max-unused", "8%")
 $SnapshotMaintenanceInterval = $Env:RESTIC_MAINT_INTERVAL ?? 7

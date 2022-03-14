@@ -28,9 +28,9 @@ ENV RESTIC_INIT_ARGS=""
 ENV RANDOM_DELAY="60"
 
 # Maintenance
-ENV RESTIC_MAINT_INTERVAL=7
-ENV RESTIC_MAINT_DAYS=30
-# download and check 5gb of backed up data, every 90 days
+ENV RESTIC_MAINT_INTERVAL=10
+ENV RESTIC_MAINT_DAYS=7
+# download and check backed up data, every 90 days
 ENV RESTIC_DEEP_MAINT="Y"
 ENV RESTIC_DEEP_MAINT_DAYS=90
 # supports restic's --read-data-subset options; 100% to read whole repo
