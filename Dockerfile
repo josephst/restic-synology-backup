@@ -1,4 +1,4 @@
-FROM restic/restic:0.12.1 as restic
+FROM restic/restic:0.13.1 as restic
 
 FROM mcr.microsoft.com/powershell:alpine-3.14
 
